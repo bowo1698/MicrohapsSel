@@ -479,44 +479,6 @@ for(iter in 1:n_iterations) {
         cat(sprintf("    - Phenotypes: %d → %d individuals\n",
                     nrow(all_phenotypes_normal) - nrow(offspring_pheno_normal), 
                     nrow(all_phenotypes_normal)))
-        
-        # Build ID vector safely
-        if(FALSE){
-        all_genotypes <- do.call(rbind, genotypes_list)
-        all_ids <- c(
-        founders_ped$individual_id,
-        all_pedigree %>% 
-            filter(generation >= 1) %>%
-            arrange(iteration, generation, family_id) %>%
-            pull(individual_id)
-        )
-
-        # Create SNP names (AX-00000001 format)
-        snp_names <- sprintf("AX-%08d", 1:ncol(all_genotypes))
-
-        geno_df <- as_tibble(all_genotypes)
-        colnames(geno_df) <- snp_names
-
-        rm(all_genotypes)
-        gc()
-
-        # Add metadata columns
-        geno_df <- geno_df %>%
-        mutate(
-            ID = all_ids,
-            generation = c(
-            rep(0, nInd(founders)),
-            all_pedigree %>% filter(generation >= 1) %>% pull(generation)
-            ),
-            population_type = ifelse(generation == 0, "founder", "reference"),
-            .before = 1
-        )
-
-        rm(geno_df)
-        gc()
-
-        write_csv(geno_df, file.path(iter_dir, sprintf("%s_gen%d_genotypes.csv", organism, gen)))
-        }
 
         # Combine genotypes only when writing
         all_genotypes <- do.call(rbind, genotypes_list)

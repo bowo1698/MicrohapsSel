@@ -7,20 +7,20 @@ run_gblup <- function(matrices, split, config) {
   pheno_test <- split$test$phenotypes
 
   pheno_train <- pheno_train %>%
-    dplyr::select(ID, phenotype, tbv) %>%
+    dplyr::select(individual_id, phenotype, tbv) %>%
     dplyr::rename(y = phenotype)
-  
-  pheno_train$ID <- as.factor(pheno_train$ID)
+
+  pheno_train$individual_id <- as.factor(pheno_train$individual_id)
   
   # Add rownames/colnames to A_train
   A_train <- matrices$A_train
-  rownames(A_train) <- pheno_train$ID
-  colnames(A_train) <- pheno_train$ID
+  rownames(A_train) <- pheno_train$individual_id
+  colnames(A_train) <- pheno_train$individual_id
   
   # GREML variance component estimation
   model_greml <- mmes(
     fixed = y ~ 1,
-    random = ~ vsm(ism(ID), Gu = A_train),
+    random = ~ vsm(ism(individual_id), Gu = A_train),
     rcov = ~ vsm(ism(units)),
     data = pheno_train,
     verbose = FALSE
@@ -49,21 +49,21 @@ run_gblup <- function(matrices, split, config) {
   } else if(!is.null(dimnames(blup)[[1]])) {
     blup_ids <- dimnames(blup)[[1]]
   } else {
-    blup_ids <- as.character(pheno_train$ID)
+    blup_ids <- as.character(pheno_train$individual_id)
   }
   
   # Match and reorder to phenotype ID order
-  matched_idx <- match(as.character(pheno_train$ID), blup_ids)
+  matched_idx <- match(as.character(pheno_train$individual_id), blup_ids)
   GEBV_train <- as.vector(blup[matched_idx])
   
   # Extract relationship blocks
   A_ref_ref <- matrices$A_combined[
-    as.character(pheno_train$ID), 
-    as.character(pheno_train$ID)
+    as.character(pheno_train$individual_id), 
+    as.character(pheno_train$individual_id)
   ]
   A_test_ref <- matrices$A_combined[
-    as.character(pheno_test$ID), 
-    as.character(pheno_train$ID)
+    as.character(pheno_test$individual_id), 
+    as.character(pheno_train$individual_id)
   ]
   
   lambda <- sigma2_e / sigma2_g

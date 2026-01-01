@@ -235,7 +235,7 @@ save_gebv_with_regression <- function(fold_id, gblup_res, bayesR_res,
   
   # Training set
   train_gebv <- data.frame(
-    ID = split$train$phenotypes$ID,
+    individual_id = split$train$phenotypes$individual_id,
     tbv = split$train$phenotypes$tbv,
     phenotype = split$train$phenotypes$phenotype,
     GEBV_GBLUP = gblup_res$predictions$train,
@@ -250,7 +250,7 @@ save_gebv_with_regression <- function(fold_id, gblup_res, bayesR_res,
   
   # Test set
   test_gebv <- data.frame(
-    ID = split$test$phenotypes$ID,
+    individual_id = split$test$phenotypes$individual_id,
     tbv = split$test$phenotypes$tbv,
     phenotype = split$test$phenotypes$phenotype,
     GEBV_GBLUP = gblup_res$predictions$test,

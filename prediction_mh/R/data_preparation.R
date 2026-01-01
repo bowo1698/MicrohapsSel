@@ -6,25 +6,22 @@ load_genomic_data <- function(config) {
   pheno <- read_csv(
     file.path(config$data_dir, config$phenotype_file),
     show_col_types = FALSE
-  )
-  
-  # Load pedigree
+  ) %>%
+    filter(generation == config$target_generation)
+
   pedigree <- read_csv(
     file.path(config$data_dir, config$pedigree_file),
     show_col_types = FALSE
   ) %>%
-    filter(population_type == config$population_type)
-  
-  # Map phenotype IDs to pedigree IDs
+    filter(
+      population_type == config$population_type,
+      generation == config$target_generation
+    )
+
   pheno <- pheno %>%
-    mutate(
-      ID = as.character(ID),
-      ind_number = as.integer(gsub("reference_gen\\d+_ind", "", ID)),
-      pedigree_id = ind_number + config$pedigree_id_offset
-    ) %>%
     left_join(
       pedigree %>% select(individual_id, father_id, mother_id),
-      by = c("pedigree_id" = "individual_id")
+      by = "individual_id"
     )
   
   # Load haplotype genotypes
@@ -43,6 +40,8 @@ load_genomic_data <- function(config) {
       hap_geno_list[[chr]] %>% select(-ID)
     )
   }
+
+  hap_geno <- hap_geno %>% rename(individual_id = ID)
   
   list(
     phenotypes = pheno,
@@ -60,12 +59,12 @@ split_fold_data <- function(data, fold_assignments, fold_id) {
   pheno_test <- data$phenotypes[test_idx, ]
   
   hap_train <- data$haplotypes %>%
-    filter(ID %in% pheno_train$ID) %>%
-    arrange(match(ID, pheno_train$ID))
-  
+    filter(individual_id %in% pheno_train$individual_id) %>%
+    arrange(match(individual_id, pheno_train$individual_id))
+
   hap_test <- data$haplotypes %>%
-    filter(ID %in% pheno_test$ID) %>%
-    arrange(match(ID, pheno_test$ID))
+    filter(individual_id %in% pheno_test$individual_id) %>%
+    arrange(match(individual_id, pheno_test$individual_id))
   
   cat("\n=== Genotype Data Preview ===\n")
   print(head(hap_train[, 1:min(10, ncol(hap_train))]))

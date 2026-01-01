@@ -11,12 +11,12 @@ config <- list(
   phenotype_file = "trout_phenotypes.csv", # trout_phenotypes_mixture.csv
   pedigree_file = "trout_pedigree.csv",
   population_type = "reference",
-  n_chromosomes = 25,
-  pedigree_id_offset = 3469,
+  target_generation = 1,
+  n_chromosomes = 29,
   
   # W matrix construction
-  min_allele_freq = 0.01,
-  max_allele_freq = 0.99,
+  min_allele_freq = 0.01, #0.05
+  max_allele_freq = 0.99, #0.95
   drop_baseline = TRUE,
   
   # Cross-validation

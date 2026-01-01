@@ -105,8 +105,8 @@ construct_grm <- function(W_train, W_test = NULL) {
 construct_matrices <- function(train_data, test_data, allele_freq, config) {
 
   # Extract haplotype columns only (exclude ID)
-  hap_train <- train_data$haplotypes %>% select(-ID)
-  hap_test <- test_data$haplotypes %>% select(-ID)
+  hap_train <- train_data$haplotypes %>% select(-individual_id)
+  hap_test <- test_data$haplotypes %>% select(-individual_id)
   
   # Construct W matrix for reference and test
   W_result_train <- construct_W_matrix(
@@ -131,8 +131,8 @@ construct_matrices <- function(train_data, test_data, allele_freq, config) {
   
   grm <- construct_grm(W_result_train$W_ah, W_result_test$W_ah)
 
-  all_ids <- c(as.character(train_data$phenotypes$ID), 
-               as.character(test_data$phenotypes$ID))
+  all_ids <- c(as.character(train_data$phenotypes$individual_id), 
+             as.character(test_data$phenotypes$individual_id))
   rownames(grm$A_combined) <- all_ids
   colnames(grm$A_combined) <- all_ids
   

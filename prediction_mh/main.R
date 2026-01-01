@@ -143,7 +143,7 @@ all_results <- foreach(fold = 1:config$k_folds,
     split <- split_fold_data(data, cv_setup$folds, fold)
     
     # Compute allele frequencies ONCE per fold
-    hap_train <- split$train$haplotypes %>% select(-ID)
+    hap_train <- split$train$haplotypes %>% select(-individual_id)
     allele_freq <- compute_allele_frequencies(hap_train, config)
 
     # Construct matrices

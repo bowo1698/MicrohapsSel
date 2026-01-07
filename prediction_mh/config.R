@@ -2,46 +2,46 @@
 
 config <- list(
   # Paths
-  base_dir = "/scratch/user/aguswibowo/Research/prediction",
-  data_dir = file.path("/QRISdata/Q8514/research_data/trout"),
-  output_dir = file.path("/scratch/user/aguswibowo/Research/prediction/output/trout/haplo_normal"), # haplo_mixture | mh_normal | mh_mixture # nolint
+  base_dir = "/scratch/user/aguswibowo/Research/iter_seq/mh_run",
+  data_dir = file.path("/scratch/user/aguswibowo/Research/simulation/output/trout_gens/iteration_1"), #
+  output_dir = file.path("/scratch/user/aguswibowo/Research/iter_seq/output/trout/comparison-mh"), ##
   
   # Data settings
-  block_dir = "mh_genotypes_haploblock", # mh_genotypes_haploblock_125bp | haplotype_genotypes # nolint
-  phenotype_file = "trout_phenotypes.csv", # trout_phenotypes_mixture.csv
-  pedigree_file = "trout_pedigree.csv",
+  block_dir = "mh_genotypes_gen1", ##
+  phenotype_file = "trout_gen1_phenotypes_normal.csv", ##
+  pedigree_file = "trout_pedigree_all.csv",
   population_type = "reference",
-  target_generation = 1,
+  target_generation = 1, ##
   n_chromosomes = 29,
   
   # W matrix construction
-  min_allele_freq = 0.01, #0.05
-  max_allele_freq = 0.99, #0.95
+  min_allele_freq = 0.01,
+  max_allele_freq = 0.99,
   drop_baseline = TRUE,
   
   # Cross-validation
-  k_folds = 5,
+  k_folds = 10,
   cv_seed = 123,
   stratify_by_sire = TRUE,
   min_offspring_per_sire = 5,
-
+  
   # Algorithm selection
   bayes_algo = "mcmc",  # "mcmc" or "em"
   
-  # Bayesian settings
+  # MCMC settings
   n_iter = 50000,      # MCMC iterations or EM max_iter
   n_burn = 20000,      # for MCMC
   n_thin = 10,         # for MCMC
   seed = 123,
   em_tol = 1e-6,       # for EM
-
+  
   # BayesR hyperparameters
   bayesR = list(
-    pi = c(0.9, 0.05, 0.03, 0.02),  # Zero, small, medium, large
-    variance_scaling = c(0, 0.01, 0.1, 1),  # Relative to sigma2_ah
+    pi = c(0.5, 0.487, 0.01, 0.003),  # Zero, small, medium, large
+    variance_scaling = c(0, 0.0001, 0.001, 0.01), # Relative to sigma2_ah
     prior_df = list(
       residual = 10,
-      small = 5,
+      small = 10,
       medium = 5,
       large = 5
     )

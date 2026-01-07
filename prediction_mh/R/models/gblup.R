@@ -128,6 +128,8 @@ run_gblup <- function(matrices, split, config) {
       h2 = h2,
       lambda = lambda
     ),
-    model = model_greml
+    model = model_greml,
+    n_cores = 1,
+    runtime = NA
   )
 }

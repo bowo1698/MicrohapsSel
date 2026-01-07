@@ -23,48 +23,75 @@ run_bayesA <- function(matrices, split, gblup_varcomp, config, fold = 0) {
     a0_e = a0_e,
     b0_e = b0_e
   )
-  
-  mcmc_params <- list(
-    n_iter = as.integer(config$mcmc$n_iter),
-    n_burn = as.integer(config$mcmc$n_burn),
-    n_thin = as.integer(config$mcmc$n_thin),
-    seed = as.integer(config$mcmc$seed)
-  )
 
-  cat("BayesA Initialization Check:\n")
-  cat("n_alleles:", n_alleles, "\n")
-  cat("Storage dimensions will be:", (config$mcmc$n_iter - config$mcmc$n_burn) / config$mcmc$n_thin, "x", n_alleles, "\n\n")
+  cat("BayesA Settings:\n")
+  cat("Algorithm:", toupper(config$bayes_algo), "\n")
+  cat("ν =", nu, "| S² =", round(S_squared, 8), "\n")
+  cat("σ²_e_init =", round(sigma2_e_init, 6), "\n\n")
   
-  # === CALL RUST BACKEND ===
-  cat("Running BayesA MCMC...\n")
-  
-  rust_result <- masbayes::run_bayesa_mcmc(
-    w = W_train,
-    y = as.numeric(y),
-    wtw_diag = as.numeric(WtW_diag),
-    wty = as.numeric(Wty),
-    nu = as.numeric(nu),
-    s_squared = as.numeric(S_squared),
-    sigma2_e_init = as.numeric(sigma2_e_init),
-    prior_params = prior_params,
-    mcmc_params = mcmc_params,
-    fold_id = as.integer(fold)
-  )
-  
-  cat("\nMCMC completed!\n")
+  if (config$bayes_algo == "em") {
 
-  beta_A_samples <- rust_result$beta_samples
-  sigma2_j_samples <- rust_result$sigma2_j_samples
-  sigma2_e_A_samples <- rust_result$sigma2_e_samples
+    cat("Running BayesA with EM algorithm...\n\n")
 
-  sigma2_e_A_mcmc <- mcmc(sigma2_e_A_samples)
-  ess_A <- effectiveSize(sigma2_e_A_mcmc)
-  geweke_A <- geweke.diag(sigma2_e_A_mcmc)$z
+    res <- masbayes::run_bayesa(
+      w = W_train,
+      y = y,
+      wtw_diag = WtW_diag,
+      wty = Wty,
+      nu = nu,
+      s_squared = S_squared,
+      sigma2_e_init = sigma2_e_init,
+      em_params = list(
+        max_iter = as.integer(config$n_iter),
+        tol = config$em_tol
+      ),
+      method = "em",
+      fold_id = as.integer(fold)
+    )
+
+    beta_A_hat <- res$beta_samples[1, ]
+    sigma2_j_hat <- res$sigma2_j_samples[1, ]
+    sigma2_e_A_hat <- res$sigma2_e_samples[1]
+    
+    ess_A <- NA
+    geweke_A <- NA
   
-  # Posterior means
-  beta_A_hat <- colMeans(beta_A_samples, na.rm = TRUE)
-  sigma2_j_hat <- colMeans(sigma2_j_samples, na.rm = TRUE)
-  sigma2_e_A_hat <- mean(sigma2_e_A_samples, na.rm = TRUE)
+  } else if (config$bayes_algo == "mcmc") {
+
+    cat("Running BayesA with MCMC algorithm...\n\n")
+
+    res <- masbayes::run_bayesa(
+      w = W_train,
+      y = y,
+      wtw_diag = WtW_diag,
+      wty = Wty,
+      nu = nu,
+      s_squared = S_squared,
+      sigma2_e_init = sigma2_e_init,
+      prior_params = prior_params,
+      mcmc_params = list(
+        n_iter = as.integer(config$n_iter),
+        n_burn = as.integer(config$n_burn),
+        n_thin = as.integer(config$n_thin),
+        seed = as.integer(config$seed)
+      ),
+      method = "mcmc",
+      fold_id = as.integer(fold)
+    )
+    
+    # Posterior means
+    beta_A_hat <- colMeans(res$beta_samples, na.rm = TRUE)
+    sigma2_j_hat <- colMeans(res$sigma2_j_samples, na.rm = TRUE)
+    sigma2_e_A_hat <- mean(res$sigma2_e_samples, na.rm = TRUE)
+    
+    # Diagnostics
+    sigma2_e_A_mcmc <- mcmc(res$sigma2_e_samples)
+    ess_A <- effectiveSize(sigma2_e_A_mcmc)
+    geweke_A <- geweke.diag(sigma2_e_A_mcmc)$z
+    
+  } else {
+    stop("config$bayes_algo must be 'mcmc' or 'em'")
+  }
   
   # Direct marker effect prediction
   GEBV_train <- W_train %*% beta_A_hat
@@ -110,15 +137,20 @@ run_bayesA <- function(matrices, split, gblup_varcomp, config, fold = 0) {
 
   # Marker statistics
   ## Compute Credible Intervals
-  beta_ci_lower <- apply(beta_A_samples, 2, quantile, probs = 0.025, na.rm = TRUE)
-  beta_ci_upper <- apply(beta_A_samples, 2, quantile, probs = 0.975, na.rm = TRUE)
+  if (config$bayes_algo == "mcmc") {
+    beta_ci_lower <- apply(res$beta_samples, 2, quantile, probs = 0.025, na.rm = TRUE)
+    beta_ci_upper <- apply(res$beta_samples, 2, quantile, probs = 0.975, na.rm = TRUE)
+  } else {
+    beta_ci_lower <- rep(NA, n_alleles)
+    beta_ci_upper <- rep(NA, n_alleles)
+  }
 
   ## Identify Important Alleles
   significant <- (beta_ci_lower > 0 | beta_ci_upper < 0)
 
   marker_info <- tryCatch({
     m_names <- colnames(W_train)
-    if(is.null(m_names)) m_names <- paste0("M", 1:ncol(W_train))
+    if(is.null(m_names)) m_names <- paste0("M", 1:n_alleles)
 
     data.frame(
       allele_id = m_names,
@@ -172,12 +204,14 @@ run_bayesA <- function(matrices, split, gblup_varcomp, config, fold = 0) {
       h2 = h2_bayesa
     ),
     markers = marker_info,
-    samples = if(config$save_mcmc_samples) {
-      list(beta = beta_A_samples, sigma2_j = sigma2_j_samples)
+    samples = if(config$save_mcmc_samples && config$bayes_algo == "mcmc") {
+      list(beta = res$beta_samples, sigma2_j = res$sigma2_j_samples)
     } else NULL,
     diagnostics = list(
       ess = ess_A,
       geweke_z = geweke_A
-    )
+    ),
+    n_cores = 1,
+    runtime = NA
   )
 }

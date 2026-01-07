@@ -10,10 +10,18 @@ Haplotype block definition using hybrid approach for PHASED data:
      - micro mode: Split haploblocks into fixed physical windows and create microhaplotype
 - Output format compatible with get-hap-geno.py
 
-Output format:
+Output block info format:
 blk1 0 3
 blk2 4 7
 blk3 8 11
+
+Output genotype format:
+ID	hap_1_1	hap_1_1	hap_1_2	hap_1_2	hap_1_3	hap_1_3	hap_1_4	hap_1_4
+ind001	1	2	3	4	1	1	2	5
+ind002	2	2	4	4	1	2	5	6
+ind003	1	3	3	5	2	2	2	2
+ind004	3	4	5	6	1	3	6	7
+ind005	2	1	4	3	2	1	5	2
 
 Author: Agus Wibowo
 """
@@ -1163,6 +1171,185 @@ def calculate_allele_metrics(hap_matrix, block_info):
         'rare_alleles_prop': rare_prop
     }
 
+def generate_haplotype_genotypes(all_blocks, hap_files, output_dir,
+                                  missing_code=None, missing_value="-9999",
+                                  noheader=False, verbose=False):
+    """
+    Generate haplotype genotype files from block definitions
+    Compatible with masbayes input format
+    
+    Args:
+        all_blocks: dict of chromosome -> list of blocks
+        hap_files: list of haplotype files
+        output_dir: output directory
+        missing_code: coding for missing alleles (e.g., "9")
+        missing_value: value for blocks with missing alleles
+        noheader: if True, haplotype files have no header
+        verbose: print progress
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    
+    if verbose:
+        print(f"\nGenerating haplotype genotypes...")
+    
+    # Sort haplotype files by chromosome
+    hap_files_sorted = sorted(hap_files, key=get_chromosome_number)
+    
+    for hap_file in hap_files_sorted:
+        chr_num = get_chromosome_number(hap_file)
+        
+        if chr_num not in all_blocks or len(all_blocks[chr_num]) == 0:
+            if verbose:
+                print(f"  Chr {chr_num}: No blocks defined, skipping")
+            continue
+        
+        blocks = all_blocks[chr_num]
+        
+        if verbose:
+            print(f"  Chr {chr_num}: Processing {len(blocks)} blocks")
+        
+        # Read haplotype file
+        try:
+            with open(hap_file, 'r') as f:
+                lines = f.readlines()
+            
+            # Skip header if present
+            start_idx = 1 if not noheader else 0
+            
+            # Parse haplotypes
+            haps = []
+            for line in lines[start_idx:]:
+                parts = line.strip().split()
+                if len(parts) >= 2:
+                    haps.append(parts)
+            
+        except Exception as e:
+            if verbose:
+                print(f"  Error reading {hap_file}: {e}")
+            continue
+        
+        # Encode haplotypes per block
+        codes = []
+        for block in blocks:
+            label = 1
+            hap_dict = {}
+            
+            for hh in haps:
+                # Reconstruct full haplotype string
+                if len(hh) == 2:
+                    h = hh[1]
+                else:
+                    h = ''.join(hh[1:])
+                
+                # Extract substring for this block
+                # Format: hap1_snp1 hap2_snp1 hap1_snp2 hap2_snp2 ...
+                # So SNP index i corresponds to positions [i*2, i*2+1]
+                start_pos = block['start_idx'] * 2
+                end_pos = block['end_idx'] * 2 + 2
+                h_part = h[start_pos:end_pos]
+                
+                # Split into two haplotypes (even/odd positions)
+                parents = [h_part[::2], h_part[1::2]]
+                
+                for p in parents:
+                    # Check for missing alleles
+                    if missing_code is not None and missing_code in p:
+                        hap_dict[p] = missing_value
+                    elif p not in hap_dict:
+                        hap_dict[p] = str(label)
+                        label += 1
+            
+            codes.append(hap_dict)
+        
+        # Write genotype file
+        outfile = os.path.join(output_dir, f'hap_geno_{chr_num}')
+        
+        try:
+            with open(outfile, 'w') as o:
+                # Header
+                header = ['ID'] + [f"hap_{chr_num}_{b}\thap_{chr_num}_{b}" 
+                                   for b in range(1, len(blocks) + 1)]
+                o.write('\t'.join(header) + '\n')
+                
+                # Data rows
+                for hh in haps:
+                    if len(hh) == 2:
+                        ind, h = hh
+                    else:
+                        ind = hh[0]
+                        h = ''.join(hh[1:])
+                    
+                    output = [ind]
+                    
+                    for c, block in enumerate(blocks):
+                        start_pos = block['start_idx'] * 2
+                        end_pos = block['end_idx'] * 2 + 2
+                        h_part = h[start_pos:end_pos]
+                        
+                        parents = [h_part[::2], h_part[1::2]]
+                        
+                        for p in parents:
+                            output.append(codes[c][p])
+                    
+                    o.write('\t'.join(output) + '\n')
+            
+            if verbose:
+                print(f"    Written: {outfile}")
+        
+        except Exception as e:
+            if verbose:
+                print(f"  Error writing {outfile}: {e}")
+
+def write_snp_selection_file(all_blocks, map_file, output_dir, verbose=False):
+    """
+    Generate detailed SNP selection file showing exact SNPs in each block
+    
+    Output: {output_dir}/stats/snp_selection_detailed.csv
+    """
+    stats_dir = os.path.join(output_dir, 'stats')
+    os.makedirs(stats_dir, exist_ok=True)
+    
+    # Read map file
+    snp_map = pd.read_csv(map_file, sep="\t")
+    if len(snp_map.columns) == 3:
+        snp_map.columns = ['SNPID', 'Chr', 'Position']
+    else:
+        snp_map.columns = ['SNPID', 'Chr', 'Position', 'GeneticPos']
+    
+    snp_data = []
+    block_counter = 1
+    
+    for chr_num in sorted(all_blocks.keys()):
+        blocks = all_blocks[chr_num]
+        chr_snps = snp_map[snp_map['Chr'] == chr_num].reset_index(drop=True)
+        
+        for block in blocks:
+            block_id = f"blk{block_counter}"
+            
+            # Get all SNP indices in this block
+            for idx in range(block['start_idx'], block['end_idx'] + 1):
+                snp_info = chr_snps.iloc[idx]
+                
+                snp_data.append({
+                    'block_id': block_id,
+                    'chr': chr_num,
+                    'snp_index': idx,
+                    'snp_id': snp_info['SNPID'],
+                    'position': snp_info['Position']
+                })
+            
+            block_counter += 1
+    
+    snp_df = pd.DataFrame(snp_data)
+    snp_file = os.path.join(stats_dir, 'snp_selection_detailed.csv')
+    snp_df.to_csv(snp_file, index=False)
+    
+    if verbose:
+        print(f"  ✓ SNP selection: {snp_file}")
+        print(f"    Total SNPs selected: {len(snp_df):,}")
+        print(f"    Unique SNPs: {snp_df['snp_id'].nunique():,}")
+    
+    return snp_file
 
 def write_csv_outputs(all_blocks, hap_files, map_file, output_dir, 
                       method_name, noheader=False, verbose=False):
@@ -1514,6 +1701,22 @@ def main():
                        default="hap_info_microhap",
                        help="Output directory name")
     
+    parser.add_argument("--generate-genotypes",
+                       type=str,
+                       default=None,
+                       metavar="PREFIX",
+                       help="Generate haplotype genotype files with specified output prefix (e.g., 'mh_geno_ld')")
+    
+    parser.add_argument("--missing",
+                       type=str,
+                       default=None,
+                       help="Coding for missing alleles (e.g., '9'), blocks with this will be set to missing-value")
+    
+    parser.add_argument("--missing-value",
+                       type=str,
+                       default="-9999",
+                       help="Value to use for blocks with missing alleles")
+    
     parser.add_argument("-v", "--verbose",
                        action="store_true",
                        help="Verbose output")
@@ -1590,9 +1793,39 @@ def main():
         verbose=args.verbose
     )
 
+    write_snp_selection_file(
+        all_blocks=all_blocks,
+        map_file=args.map,
+        output_dir=args.output,
+        verbose=args.verbose
+    )
+
     # Write output files
     print("\nWriting output files:")
     total_blocks = write_output_files(all_blocks, args.output, verbose=args.verbose)
+
+    if args.generate_genotypes is not None:
+        # Determine output directory for genotypes
+        # Get parent directory of args.output
+        parent_dir = os.path.dirname(args.output) if os.path.dirname(args.output) else '.'
+        # Auto-ensure different folder by appending suffix if same
+        if args.generate_genotypes == os.path.basename(args.output):
+            geno_output_dir = os.path.join(parent_dir, args.generate_genotypes + "_geno")
+        else:
+            geno_output_dir = os.path.join(parent_dir, args.generate_genotypes)
+        
+        if args.verbose:
+            print(f"\nGenotype output directory: {geno_output_dir}")
+        
+        generate_haplotype_genotypes(
+            all_blocks=all_blocks,
+            hap_files=args.input,
+            output_dir=geno_output_dir,
+            missing_code=args.missing,
+            missing_value=args.missing_value,
+            noheader=args.noheader,
+            verbose=args.verbose
+        )
 
     # Calculate genome coverage statistics
     coverage_stats = calculate_genome_coverage(

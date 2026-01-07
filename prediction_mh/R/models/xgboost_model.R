@@ -21,7 +21,8 @@ run_xgboost <- function(matrices, split, config) {
     eta = config$xgboost$eta,
     lambda = config$xgboost$lambda,
     colsample_bytree = config$xgboost$colsample_bytree,
-    subsample = config$xgboost$subsample
+    subsample = config$xgboost$subsample,
+    nthread = 1
   )
   
   # Train model
@@ -116,6 +117,8 @@ run_xgboost <- function(matrices, split, config) {
     ),
     importance = importance_full,
     high_importance = high_importance,
-    model = model_xgb
+    model = model_xgb,
+    n_cores = 1,
+    runtime = NA
   )
 }

@@ -171,6 +171,7 @@ all_results <- foreach(fold = 1:config$k_folds,
     gblup_start <- Sys.time()
     gblup_res <- run_gblup(matrices, split, config)
     gblup_time <- as.numeric(difftime(Sys.time(), gblup_start, units = "hours"))
+    gblup_res$runtime <- gblup_time
     cat("GBLUP Training Accuracy (Phenotype):", round(gblup_res$accuracy$train_pheno, 4), "\n")
     cat("GBLUP Training Accuracy (TBV):", round(gblup_res$accuracy$train_tbv, 4), "\n")
     cat("GBLUP Test Accuracy (Phenotype):", round(gblup_res$accuracy$test_pheno, 4), "\n")
@@ -183,6 +184,7 @@ all_results <- foreach(fold = 1:config$k_folds,
     bayesR_start <- Sys.time()
     bayesR_res <- run_bayesR(matrices, split, gblup_res$varcomp, config, fold = fold)
     bayesR_time <- as.numeric(difftime(Sys.time(), bayesR_start, units = "hours"))
+    bayesR_res$runtime <- bayesR_time
     cat("BayesR Training Accuracy (Phenotype):", round(bayesR_res$accuracy$train_pheno, 4), "\n")
     cat("BayesR Training Accuracy (TBV):", round(bayesR_res$accuracy$train_tbv, 4), "\n")
     cat("BayesR Test Accuracy (Phenotype):", round(bayesR_res$accuracy$test_pheno, 4), "\n")
@@ -197,6 +199,7 @@ all_results <- foreach(fold = 1:config$k_folds,
     bayesA_start <- Sys.time()
     bayesA_res <- run_bayesA(matrices, split, gblup_res$varcomp, config, fold = fold)
     bayesA_time <- as.numeric(difftime(Sys.time(), bayesA_start, units = "hours"))
+    bayesA_res$runtime <- bayesA_time
     cat("BayesA Training Accuracy (Phenotype):", round(bayesA_res$accuracy$train_pheno, 4), "\n")
     cat("BayesA Training Accuracy (TBV):", round(bayesA_res$accuracy$train_tbv, 4), "\n")
     cat("BayesA Test Accuracy (Phenotype):", round(bayesA_res$accuracy$test_pheno, 4), "\n")
@@ -211,6 +214,7 @@ all_results <- foreach(fold = 1:config$k_folds,
     xgb_start <- Sys.time()
     xgb_res <- run_xgboost(matrices, split, config)
     xgb_time <- as.numeric(difftime(Sys.time(), xgb_start, units = "hours"))
+    xgb_res$runtime <- xgb_time
     cat("XGBoost Training Accuracy (Phenotype):", round(xgb_res$accuracy$train_pheno, 4), "\n")
     cat("XGBoost Training Accuracy (TBV):", round(xgb_res$accuracy$train_tbv, 4), "\n")
     cat("XGBoost Test Accuracy (Phenotype):", round(xgb_res$accuracy$test_pheno, 4), "\n")

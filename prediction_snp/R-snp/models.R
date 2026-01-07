@@ -1,0 +1,332 @@
+# models.R
+# Model training and prediction functions
+
+suppressPackageStartupMessages({
+  library(sommer)
+  library(hibayes)
+  library(xgboost)
+})
+
+train_gblup <- function(y_train, GRM_train, n_threads) {
+  result <- tryCatch({
+    train_time <- system.time({
+      n <- length(y_train)
+      if(is.null(rownames(GRM_train))) {
+        id_names <- paste0("ID_", 1:n)
+        rownames(GRM_train) <- id_names
+        colnames(GRM_train) <- id_names
+      } else {
+        id_names <- rownames(GRM_train)
+      }
+      
+      pheno_df <- data.frame(
+        ID = id_names,
+        y = y_train,
+        units = 1:n
+      )
+      
+      fit <- mmes(
+        fixed = y ~ 1,
+        random = ~ vsm(ism(ID), Gu = GRM_train),
+        rcov = ~ vsm(ism(units)),
+        data = pheno_df,
+        verbose = FALSE
+      )
+      
+      var_comp <- fit$theta
+      var_g <- var_comp[[1]][1,1]
+      var_e <- var_comp[[2]][1,1]
+      h2 <- var_g / (var_g + var_e)
+      
+      # Extract BLUP - handle list or matrix
+      if(is.list(fit$u)) {
+        blup <- fit$u[[1]]
+      } else {
+        blup <- fit$u
+      }
+      if(is.null(dim(blup))) blup <- matrix(blup, ncol = 1)
+      
+      # Extract IDs from BLUP
+      if(!is.null(rownames(blup))) {
+        blup_ids <- rownames(blup)
+      } else if(!is.null(dimnames(blup)[[1]])) {
+        blup_ids <- dimnames(blup)[[1]]
+      } else {
+        blup_ids <- id_names
+      }
+      
+      # Match and reorder to phenotype ID order
+      matched_idx <- match(id_names, blup_ids)
+      if(any(is.na(matched_idx))) {
+        stop("ID mismatch between id_names and BLUP IDs")
+      }
+      u <- as.vector(blup[matched_idx])
+    })
+    
+    list(
+      success = TRUE,
+      fit = fit,
+      u = u,
+      id_names = id_names,
+      var_g = var_g,
+      var_e = var_e,
+      train_time = train_time[3],
+      h2 = h2
+    )
+  }, error = function(e) {
+    cat("GBLUP FAILED:", e$message, "\n")
+    list(success = FALSE, train_time = NA, h2 = NA)
+  })
+  
+  return(result)
+}
+
+predict_gblup_train <- function(gblup_fit, GRM_train, y_train) {
+  result <- tryCatch({
+    fit <- gblup_fit$fit
+    id_names <- gblup_fit$id_names
+    
+    mu <- as.numeric(fit$b)
+    
+    # Extract BLUP - handle list or matrix
+    if(is.list(fit$u)) {
+      blup <- fit$u[[1]]
+    } else {
+      blup <- fit$u
+    }
+    if(is.null(dim(blup))) blup <- matrix(blup, ncol = 1)
+    
+    # Extract IDs
+    if(!is.null(rownames(blup))) {
+      blup_ids <- rownames(blup)
+    } else if(!is.null(dimnames(blup)[[1]])) {
+      blup_ids <- dimnames(blup)[[1]]
+    } else {
+      blup_ids <- id_names
+    }
+    
+    # Match and reorder
+    matched_idx <- match(id_names, blup_ids)
+    if(any(is.na(matched_idx))) {
+      stop("ID mismatch in predict_gblup_train")
+    }
+    u <- as.vector(blup[matched_idx])
+    
+    pred <- mu + u
+    list(pred = pred)
+  }, error = function(e) {
+    cat("ERROR in predict_gblup_train:", e$message, "\n")
+    stop(e)
+  })
+  
+  return(result)
+}
+
+predict_gblup <- function(gblup_fit, GRM_val_train, y_train, GRM_train) {
+  result <- tryCatch({
+    pred_time <- system.time({
+      fit <- gblup_fit$fit
+      id_names <- gblup_fit$id_names
+      
+      mu <- as.numeric(fit$b)
+      
+      # Extract BLUP - handle list or matrix
+      if(is.list(fit$u)) {
+        blup <- fit$u[[1]]
+      } else {
+        blup <- fit$u
+      }
+      if(is.null(dim(blup))) blup <- matrix(blup, ncol = 1)
+      
+      # Extract IDs
+      if(!is.null(rownames(blup))) {
+        blup_ids <- rownames(blup)
+      } else if(!is.null(dimnames(blup)[[1]])) {
+        blup_ids <- dimnames(blup)[[1]]
+      } else {
+        blup_ids <- id_names
+      }
+      
+      # Match and reorder
+      matched_idx <- match(id_names, blup_ids)
+      if(any(is.na(matched_idx))) {
+        stop("ID mismatch in predict_gblup")
+      }
+      u_train <- as.vector(blup[matched_idx])
+      
+      # Prediction with lambda
+      var_comp <- fit$theta
+      var_g <- var_comp[[1]][1,1]
+      var_e <- var_comp[[2]][1,1]
+      lambda <- var_e / var_g
+      
+      A_ref_inv <- solve(GRM_train + diag(lambda, nrow(GRM_train)))
+      pred <- mu + drop(GRM_val_train %*% A_ref_inv %*% u_train)
+    })
+    
+    list(success = TRUE, pred = pred, pred_time = pred_time[3])
+  }, error = function(e) {
+    cat("ERROR in predict_gblup:", e$message, "\n")
+    list(success = FALSE, pred = NA, pred_time = NA)
+  })
+  
+  return(result)
+}
+
+train_bayesA <- function(pheno_data, geno_train_filtered, train_ids, config, n_threads = 1) {
+  result <- tryCatch({
+    train_time <- system.time({
+      fit <- ibrm(
+        formula = phenotype ~ 1,
+        data = pheno_data,
+        M = geno_train_filtered,
+        M.id = train_ids,
+        method = "BayesA",
+        niter = config$bayesian$niter,
+        nburn = config$bayesian$nburn,
+        thin = config$bayesian$thin,
+        threads = n_threads,
+        verbose = FALSE
+      )
+    })
+    
+    list(
+      success = TRUE,
+      fit = fit,
+      train_time = train_time[3],
+      h2 = fit$h2
+    )
+  }, error = function(e) {
+    cat("BayesA FAILED:", e$message, "\n")
+    list(success = FALSE, train_time = NA, h2 = NA)
+  })
+  
+  return(result)
+}
+
+predict_bayesA_train <- function(fit, geno_train_filtered) {
+  mu <- as.numeric(fit$mu)
+  alpha <- as.numeric(fit$alpha)
+  pred <- mu + as.vector(geno_train_filtered %*% alpha)
+  list(pred = pred)
+}
+
+predict_bayesA <- function(fit, geno_val_filtered) {
+  result <- tryCatch({
+    pred_time <- system.time({
+      pred <- as.vector(fit$mu + geno_val_filtered %*% fit$alpha)
+    })
+    
+    list(success = TRUE, pred = pred, pred_time = pred_time[3])
+  }, error = function(e) {
+    cat("ERROR in predict_bayesA:", e$message, "\n")
+    list(success = FALSE, pred = NA, pred_time = NA)
+  })
+  
+  return(result)
+}
+
+train_bayesR <- function(pheno_data, geno_train_filtered, train_ids, vg, ve, config, n_threads = 1) {
+  result <- tryCatch({
+    train_time <- system.time({
+      fit <- ibrm(
+        formula = phenotype ~ 1,
+        data = pheno_data,
+        M = geno_train_filtered,
+        M.id = train_ids,
+        method = "BayesR",
+        fold = config$bayesR$fold,
+        vg = vg,
+        ve = ve,
+        niter = config$bayesian$niter,
+        nburn = config$bayesian$nburn,
+        thin = config$bayesian$thin,
+        threads = n_threads,
+        verbose = FALSE
+      )
+    })
+    
+    list(
+      success = TRUE,
+      fit = fit,
+      train_time = train_time[3],
+      h2 = fit$h2
+    )
+  }, error = function(e) {
+    cat("BayesR FAILED:", e$message, "\n")
+    list(success = FALSE, train_time = NA, h2 = NA)
+  })
+  
+  return(result)
+}
+
+predict_bayesR_train <- function(fit, geno_train_filtered) {
+  mu <- as.numeric(fit$mu)
+  alpha <- as.numeric(fit$alpha)
+  pred <- mu + as.vector(geno_train_filtered %*% alpha)
+  list(pred = pred)
+}
+
+predict_bayesR <- function(fit, geno_val_filtered) {
+  result <- tryCatch({
+    pred_time <- system.time({
+      pred <- as.vector(fit$mu + geno_val_filtered %*% fit$alpha)
+    })
+    
+    list(success = TRUE, pred = pred, pred_time = pred_time[3])
+  }, error = function(e) {
+    list(success = FALSE, pred = NA, pred_time = NA)
+  })
+  
+  return(result)
+}
+
+train_xgb <- function(geno_train, y_train, config, n_threads = 1) {
+  result <- tryCatch({
+    train_time <- system.time({
+      xgb_train <- xgb.DMatrix(data = geno_train, label = y_train)
+      fit <- xgb.train(
+        params = list(
+          objective = "reg:squarederror",
+          nthread = n_threads,
+          eta = config$xgb$eta,
+          max_depth = config$xgb$max_depth,
+          subsample = config$xgb$subsample,
+          colsample_bytree = config$xgb$colsample_bytree,
+          lambda = config$xgb$lambda
+        ),
+        data = xgb_train,
+        nrounds = config$xgb$nrounds,
+        verbose = 0
+      )
+    })
+    
+    list(success = TRUE, fit = fit, train_time = train_time[3])
+  }, error = function(e) {
+    cat("XGBoost FAILED:", e$message, "\n")
+    list(success = FALSE, train_time = NA)
+  })
+  
+  return(result)
+}
+
+predict_xgb_train <- function(fit, geno_train) {
+  dtrain <- xgb.DMatrix(data = geno_train)
+  pred <- predict(fit, dtrain)
+  list(pred = pred)
+}
+
+predict_xgb <- function(fit, geno_val) {
+  result <- tryCatch({
+    pred_time <- system.time({
+      dval <- xgb.DMatrix(data = geno_val)
+      pred <- predict(fit, dval)
+    })
+    
+    list(success = TRUE, pred = pred, pred_time = pred_time[3])
+  }, error = function(e) {
+    list(success = FALSE, pred = NA, pred_time = NA)
+  })
+  
+  return(result)
+}

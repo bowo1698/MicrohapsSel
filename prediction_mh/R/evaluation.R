@@ -76,7 +76,19 @@ aggregate_fold_results <- function(gblup_res, bayesR_res, bayesA_res,
     xgb_r2_train_pheno = xgb_res$r2$train_pheno,
     xgb_r2_train_tbv = xgb_res$r2$train_tbv,
     xgb_r2_test_pheno = xgb_res$r2$test_pheno,
-    xgb_r2_test_tbv = xgb_res$r2$test_tbv
+    xgb_r2_test_tbv = xgb_res$r2$test_tbv,
+    gblup_n_cores = gblup_res$n_cores,
+    bayesR_n_cores = bayesR_res$n_cores,
+    bayesA_n_cores = bayesA_res$n_cores,
+    xgb_n_cores = xgb_res$n_cores,
+    gblup_core_hours = gblup_res$runtime * gblup_res$n_cores,
+    bayesR_core_hours = bayesR_res$runtime * bayesR_res$n_cores,
+    bayesA_core_hours = bayesA_res$runtime * bayesA_res$n_cores,
+    xgb_core_hours = xgb_res$runtime * xgb_res$n_cores,
+    gblup_efficiency = (gblup_res$runtime * gblup_res$n_cores) / gblup_res$accuracy$test_tbv,
+    bayesR_efficiency = (bayesR_res$runtime * bayesR_res$n_cores) / bayesR_res$accuracy$test_tbv,
+    bayesA_efficiency = (bayesA_res$runtime * bayesA_res$n_cores) / bayesA_res$accuracy$test_tbv,
+    xgb_efficiency = (xgb_res$runtime * xgb_res$n_cores) / xgb_res$accuracy$test_tbv
   )
 }
 
@@ -219,7 +231,23 @@ summarize_cv_results <- function(results_list) {
       XGBoost_r2_train_tbv_mean = mean(xgb_r2_train_tbv),
       XGBoost_r2_train_tbv_sd = sd(xgb_r2_train_tbv),
       XGBoost_r2_test_tbv_mean = mean(xgb_r2_test_tbv),
-      XGBoost_r2_test_tbv_sd = sd(xgb_r2_test_tbv)
+      XGBoost_r2_test_tbv_sd = sd(xgb_r2_test_tbv),
+      GBLUP_core_hours_mean = mean(gblup_core_hours),
+      GBLUP_core_hours_sd = sd(gblup_core_hours),
+      BayesR_core_hours_mean = mean(bayesR_core_hours),
+      BayesR_core_hours_sd = sd(bayesR_core_hours),
+      BayesA_core_hours_mean = mean(bayesA_core_hours),
+      BayesA_core_hours_sd = sd(bayesA_core_hours),
+      XGBoost_core_hours_mean = mean(xgb_core_hours),
+      XGBoost_core_hours_sd = sd(xgb_core_hours),
+      GBLUP_efficiency_mean = mean(gblup_efficiency),
+      GBLUP_efficiency_sd = sd(gblup_efficiency),
+      BayesR_efficiency_mean = mean(bayesR_efficiency),
+      BayesR_efficiency_sd = sd(bayesR_efficiency),
+      BayesA_efficiency_mean = mean(bayesA_efficiency),
+      BayesA_efficiency_sd = sd(bayesA_efficiency),
+      XGBoost_efficiency_mean = mean(xgb_efficiency),
+      XGBoost_efficiency_sd = sd(xgb_efficiency)
     )
   
   list(
@@ -234,34 +262,32 @@ save_gebv_with_regression <- function(fold_id, gblup_res, bayesR_res,
   fold_dir <- file.path(output_dir, paste0("fold_", fold_id))
   
   # Training set
-  train_gebv <- data.frame(
-    individual_id = split$train$phenotypes$individual_id,
-    tbv = split$train$phenotypes$tbv,
-    phenotype = split$train$phenotypes$phenotype,
-    GEBV_GBLUP = gblup_res$predictions$train,
-    GEBV_BayesR = bayesR_res$predictions$train,
-    GEBV_BayesA = bayesA_res$predictions$train,
-    GEBV_XGBoost = xgb_res$predictions$train,
-    b_GBLUP_tbv = gblup_res$regression_slopes$train_tbv,
-    b_BayesR_tbv = bayesR_res$regression_slopes$train_tbv,
-    b_BayesA_tbv = bayesA_res$regression_slopes$train_tbv,
-    b_XGBoost_tbv = xgb_res$regression_slopes$train_tbv
-  )
+  train_gebv <- split$train$phenotypes %>%
+    select(individual_id, tbv, phenotype) %>%
+    mutate(
+      GEBV_GBLUP = gblup_res$predictions$train,
+      GEBV_BayesR = bayesR_res$predictions$train,
+      GEBV_BayesA = bayesA_res$predictions$train,
+      GEBV_XGBoost = xgb_res$predictions$train,
+      b_GBLUP_tbv = gblup_res$regression_slopes$train_tbv,
+      b_BayesR_tbv = bayesR_res$regression_slopes$train_tbv,
+      b_BayesA_tbv = bayesA_res$regression_slopes$train_tbv,
+      b_XGBoost_tbv = xgb_res$regression_slopes$train_tbv
+    )
   
   # Test set
-  test_gebv <- data.frame(
-    individual_id = split$test$phenotypes$individual_id,
-    tbv = split$test$phenotypes$tbv,
-    phenotype = split$test$phenotypes$phenotype,
-    GEBV_GBLUP = gblup_res$predictions$test,
-    GEBV_BayesR = bayesR_res$predictions$test,
-    GEBV_BayesA = bayesA_res$predictions$test,
-    GEBV_XGBoost = xgb_res$predictions$test,
-    b_GBLUP_tbv = gblup_res$regression_slopes$test_tbv,
-    b_BayesR_tbv = bayesR_res$regression_slopes$test_tbv,
-    b_BayesA_tbv = bayesA_res$regression_slopes$test_tbv,
-    b_XGBoost_tbv = xgb_res$regression_slopes$test_tbv
-  )
+  test_gebv <- split$test$phenotypes %>%
+    select(individual_id, tbv, phenotype) %>%
+    mutate(
+      GEBV_GBLUP = gblup_res$predictions$test,
+      GEBV_BayesR = bayesR_res$predictions$test,
+      GEBV_BayesA = bayesA_res$predictions$test,
+      GEBV_XGBoost = xgb_res$predictions$test,
+      b_GBLUP_tbv = gblup_res$regression_slopes$test_tbv,
+      b_BayesR_tbv = bayesR_res$regression_slopes$test_tbv,
+      b_BayesA_tbv = bayesA_res$regression_slopes$test_tbv,
+      b_XGBoost_tbv = xgb_res$regression_slopes$test_tbv
+    )
   
   write.csv(train_gebv, file.path(fold_dir, "train_gebv.csv"), row.names = FALSE)
   write.csv(test_gebv, file.path(fold_dir, "test_gebv.csv"), row.names = FALSE)
@@ -481,4 +507,22 @@ print_cv_summary <- function(summary_stats) {
   cat("XGBoost:", sprintf("%.4f ± %.4f", 
                         summary_stats$XGBoost_b_train_tbv_mean, 
                         summary_stats$XGBoost_b_train_tbv_sd), "\n")
+  
+  cat("\nEfficiency (Core-Hours / Test Accuracy) ± SD:\n")
+  cat("GBLUP:  ", sprintf("%.2f ± %.2f", 
+                         summary_stats$GBLUP_efficiency_mean, 
+                         summary_stats$GBLUP_efficiency_sd), 
+      " (Lower is better)\n")
+  cat("BayesR: ", sprintf("%.2f ± %.2f", 
+                         summary_stats$BayesR_efficiency_mean, 
+                         summary_stats$BayesR_efficiency_sd), 
+      " (Lower is better)\n")
+  cat("BayesA: ", sprintf("%.2f ± %.2f", 
+                         summary_stats$BayesA_efficiency_mean, 
+                         summary_stats$BayesA_efficiency_sd), 
+      " (Lower is better)\n")
+  cat("XGBoost:", sprintf("%.2f ± %.2f", 
+                         summary_stats$XGBoost_efficiency_mean, 
+                         summary_stats$XGBoost_efficiency_sd), 
+      " (Lower is better)\n")
 }

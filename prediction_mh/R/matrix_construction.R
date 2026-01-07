@@ -48,7 +48,7 @@ construct_W_matrix <- function(hap_cols, allele_freq_filtered, reference_structu
     drop_baseline = drop_baseline
   )
   
-  # Ensure column names are set (fallback safety)
+  # Ensure column names are set
   if(is.null(colnames(result$W_ah)) && 
      !is.null(result$allele_info) && 
      "allele_id" %in% names(result$allele_info)) {

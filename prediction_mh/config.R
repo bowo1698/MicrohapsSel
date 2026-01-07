@@ -24,15 +24,17 @@ config <- list(
   cv_seed = 123,
   stratify_by_sire = TRUE,
   min_offspring_per_sire = 5,
+
+  # Algorithm selection
+  bayes_algo = "mcmc",  # "mcmc" or "em"
   
-  # MCMC settings
-  mcmc = list(
-    n_iter = 50000,
-    n_burn = 20000,
-    n_thin = 10,
-    seed = 123
-  ),
-  
+  # Bayesian settings
+  n_iter = 50000,      # MCMC iterations or EM max_iter
+  n_burn = 20000,      # for MCMC
+  n_thin = 10,         # for MCMC
+  seed = 123,
+  em_tol = 1e-6,       # for EM
+
   # BayesR hyperparameters
   bayesR = list(
     pi = c(0.9, 0.05, 0.03, 0.02),  # Zero, small, medium, large

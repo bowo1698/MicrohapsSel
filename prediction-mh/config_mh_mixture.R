@@ -1,17 +1,22 @@
 # Global Configuration for Genomic Prediction Pipeline
 
+iter <- as.integer(Sys.getenv("ITER", "1"))
+gen <- as.integer(Sys.getenv("GEN", "1"))
+
 config <- list(
   # Paths
-  base_dir = "/scratch/user/aguswibowo/Research/iter_seq/mh_run",
-  data_dir = file.path("/scratch/user/aguswibowo/Research/simulation/output/trout_gens/iteration_1"), #
-  output_dir = file.path("/scratch/user/aguswibowo/Research/iter_seq/output/trout/comparison-mh"), ##
+  base_dir = "/scratch/user/aguswibowo/Research/iter_seq/model_run",
+  data_dir = file.path("/scratch/user/aguswibowo/Research/simulation/output/trout", ##
+                     paste0("iteration_", iter)),
+  output_dir = file.path("/scratch/user/aguswibowo/Research/iter_seq/output/trout_MH_mixture", 
+                     paste0("iteration_", iter, "_gen", gen)),
   
   # Data settings
-  block_dir = "mh_genotypes_gen1", ##
-  phenotype_file = "trout_gen1_phenotypes_normal.csv", ##
+  block_dir = paste0("mh_genotypes_gen", gen),
+  phenotype_file = paste0("trout_gen", gen, "_phenotypes_mixture.csv"),
   pedigree_file = "trout_pedigree_all.csv",
   population_type = "reference",
-  target_generation = 1, ##
+  target_generation = gen,
   n_chromosomes = 29,
   
   # W matrix construction
@@ -29,7 +34,7 @@ config <- list(
   bayes_algo = "mcmc",  # "mcmc" or "em"
   
   # MCMC settings
-  n_iter = 50000,      # MCMC iterations or EM max_iter
+  n_iter = 40000,      # MCMC iterations or EM max_iter
   n_burn = 20000,      # for MCMC
   n_thin = 10,         # for MCMC
   seed = 123,

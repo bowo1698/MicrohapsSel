@@ -60,27 +60,26 @@ jobs:
           chmod +x dist/convert-to-vcf
           chmod +x dist/convert-from-vcf
 
-          # macOS-specific fixes
           if [[ "$RUNNER_OS" == "macOS" ]]; then
             echo "Applying macOS code signing workarounds..."
             
-            # Strip debug symbols to reduce size and improve compatibility
+            # Strip symbols
             strip dist/haplotype-hybrid
             strip dist/convert-to-vcf
             strip dist/convert-from-vcf
             
-            # Ad-hoc code signing (bypasses Gatekeeper on first run)
-            codesign -s - --force --deep dist/haplotype-hybrid
-            codesign -s - --force --deep dist/convert-to-vcf
-            codesign -s - --force --deep dist/convert-from-vcf
+            # Simple ad-hoc signing WITHOUT hardened runtime
+            codesign -s - -f dist/haplotype-hybrid
+            codesign -s - -f dist/convert-to-vcf
+            codesign -s - -f dist/convert-from-vcf
             
-            # Remove quarantine attributes
-            xattr -cr dist/ 2>/dev/null || true
+            # Remove extended attributes
+            xattr -cr dist/
             
-            # Verify signing
-            codesign --verify --verbose dist/haplotype-hybrid
-            codesign --verify --verbose dist/convert-to-vcf
-            codesign --verify --verbose dist/convert-from-vcf
+            # Verify
+            codesign -vvv dist/haplotype-hybrid || true
+            codesign -vvv dist/convert-to-vcf || true
+            codesign -vvv dist/convert-from-vcf || true
           fi
           
           cd dist

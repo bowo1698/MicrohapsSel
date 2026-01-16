@@ -21,9 +21,9 @@ jobs:
             arch: x64-linux
             ext: tar.gz
           
-          - os: macos-13
+          - os: macOS-latest
             target: x86_64-apple-darwin
-            arch: x64-macos
+            arch: x64
             ext: tar.gz
           
           - os: macos-14

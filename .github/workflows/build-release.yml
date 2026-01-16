@@ -63,23 +63,28 @@ jobs:
           if [[ "$RUNNER_OS" == "macOS" ]]; then
             echo "Applying macOS code signing workarounds..."
             
+            export RUSTFLAGS="-C link-args=-Wl,-stack_size,0x2000000"
+            
+            # Rebuild with increased stack
+            cargo clean
+            cargo build --release --target ${{ matrix.config.target }}
+            
+            # Copy rebuilt binaries
+            cp target/${{ matrix.config.target }}/release/haplotype-hybrid dist/
+            cp target/${{ matrix.config.target }}/release/convert-to-vcf dist/
+            cp target/${{ matrix.config.target }}/release/convert-from-vcf dist/
+            
             # Strip symbols
             strip dist/haplotype-hybrid
             strip dist/convert-to-vcf
             strip dist/convert-from-vcf
             
-            # Simple ad-hoc signing WITHOUT hardened runtime
+            # Simple signing
             codesign -s - -f dist/haplotype-hybrid
             codesign -s - -f dist/convert-to-vcf
             codesign -s - -f dist/convert-from-vcf
             
-            # Remove extended attributes
-            xattr -cr dist/
-            
-            # Verify
-            codesign -vvv dist/haplotype-hybrid || true
-            codesign -vvv dist/convert-to-vcf || true
-            codesign -vvv dist/convert-from-vcf || true
+            chmod +x dist/*
           fi
           
           cd dist

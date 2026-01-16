@@ -56,6 +56,12 @@ jobs:
           cp target/${{ matrix.config.target }}/release/convert-from-vcf dist/
           chmod +x dist/convert-to-vcf
           chmod +x dist/convert-from-vcf
+
+          # Remove macOS quarantine attributes (signing bypass)
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            xattr -cr dist/ 2>/dev/null || true
+          fi
+          
           cd dist
           tar -czf vcf-converter-${{ matrix.config.arch }}.tar.gz convert-to-vcf convert-from-vcf
           mv vcf-converter-${{ matrix.config.arch }}.tar.gz ../
@@ -103,47 +109,6 @@ jobs:
           files: artifacts/*
           tag_name: ${{ github.ref_name }}
           name: VCF Converter ${{ github.ref_name }}
-          body: |
-            ## VCF Converter Release ${{ github.ref_name }}
-            
-            Cross-platform binaries for genomic data conversion tools.
-            
-            ### Installation
-            
-            **Linux (x64):**
-            ```bash
-                        tar -xzf vcf-converter-x64-linux.tar.gz
-                        sudo mv convert-to-vcf convert-from-vcf /usr/local/bin/
-            ```
-                        
-                        **macOS (Intel):**
-            ```bash
-                        tar -xzf vcf-converter-x64-macos.tar.gz
-                        sudo mv convert-to-vcf convert-from-vcf /usr/local/bin/
-            ```
-                        
-                        **macOS (Apple Silicon):**
-            ```bash
-                        tar -xzf vcf-converter-arm64-macos.tar.gz
-                        sudo mv convert-to-vcf convert-from-vcf /usr/local/bin/
-            ```
-                        
-                        **Windows:**
-            ```powershell
-                        Expand-Archive vcf-converter-x64-windows.zip
-            ```
-                        
-                        ### Usage Examples
-                        
-                        **Convert CSV to VCF:**
-            ```bash
-                        convert-to-vcf -i genotypes.csv -m snp_map.txt -o output.vcf --parallel --ncores 32
-            ```
-                        
-                        **Convert VCF to genotype/haplotype:**
-            ```bash
-                        convert-from-vcf -i phased.vcf --map snp_map.txt --genofolder geno --hapfolder hap
-            ```
           draft: false
           prerelease: false
         env:

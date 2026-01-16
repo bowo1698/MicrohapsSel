@@ -1,5 +1,5 @@
 # .github/workflows/build-release.yml
-name: Build and Release VCF Converter Binaries
+name: Build and Release Preprocessing for Microhaplotype
 
 on:
   push:
@@ -23,7 +23,7 @@ jobs:
           
           - os: macOS-latest
             target: x86_64-apple-darwin
-            arch: x64
+            arch: x64-macos
             ext: tar.gz
           
           - os: macos-14
@@ -52,8 +52,11 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           mkdir -p dist
+          cp target/${{ matrix.config.target }}/release/haplotype-hybrid dist/
           cp target/${{ matrix.config.target }}/release/convert-to-vcf dist/
           cp target/${{ matrix.config.target }}/release/convert-from-vcf dist/
+
+          chmod +x dist/haplotype-hybrid
           chmod +x dist/convert-to-vcf
           chmod +x dist/convert-from-vcf
 
@@ -63,23 +66,26 @@ jobs:
           fi
           
           cd dist
-          tar -czf vcf-converter-${{ matrix.config.arch }}.tar.gz convert-to-vcf convert-from-vcf
-          mv vcf-converter-${{ matrix.config.arch }}.tar.gz ../
+          tar -czf microhaplotype-tools-${{ matrix.config.arch }}.tar.gz \
+            haplotype-hybrid convert-to-vcf convert-from-vcf
+          mv microhaplotype-tools-${{ matrix.config.arch }}.tar.gz ../
       
       - name: Prepare binaries (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist
+          Copy-Item target/${{ matrix.config.target }}/release/haplotype-hybrid.exe dist/
           Copy-Item target/${{ matrix.config.target }}/release/convert-to-vcf.exe dist/
           Copy-Item target/${{ matrix.config.target }}/release/convert-from-vcf.exe dist/
-          Compress-Archive -Path dist/* -DestinationPath vcf-converter-${{ matrix.config.arch }}.zip
+          
+          Compress-Archive -Path dist/* -DestinationPath microhaplotype-tools-${{ matrix.config.arch }}.zip
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vcf-converter-${{ matrix.config.arch }}
-          path: vcf-converter-${{ matrix.config.arch }}.${{ matrix.config.ext }}
+          name: microhaplotype-tools-${{ matrix.config.arch }}
+          path: microhaplotype-tools-${{ matrix.config.arch }}.${{ matrix.config.ext }}
           retention-days: 7
 
   release:
@@ -95,7 +101,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-          pattern: vcf-converter-*
+          pattern: microhaplotype-tools-*
           merge-multiple: true
       
       - name: List artifacts
@@ -108,7 +114,7 @@ jobs:
         with:
           files: artifacts/*
           tag_name: ${{ github.ref_name }}
-          name: VCF Converter ${{ github.ref_name }}
+          name: Microhaplotype Tools ${{ github.ref_name }}
           draft: false
           prerelease: false
         env:

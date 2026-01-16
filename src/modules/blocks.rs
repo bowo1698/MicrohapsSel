@@ -1,0 +1,311 @@
+// src/modules/blocks.rs
+use std::collections::{HashSet, BTreeMap};
+use std::path::PathBuf;
+use anyhow::Result;
+
+use super::types::*;
+use super::io::*;
+use super::ld::*;
+use super::scoring::*;
+
+pub fn define_microhaplotype_blocks(
+    hap_files: &[PathBuf],
+    snp_map: &[SnpInfo],
+    config: &BlockDefinitionConfig,
+) -> Result<BTreeMap<i32, Vec<Block>>> {
+    let mut all_blocks = BTreeMap::new();
+
+    for hap_file in hap_files {
+        let chr_num = get_chromosome_number(hap_file);
+
+        if config.verbose {
+            println!("\nProcessing chromosome {}: {}", chr_num, hap_file.display());
+        }
+
+        let chr_snps: Vec<SnpInfo> = snp_map
+            .iter()
+            .filter(|s| s.chr == chr_num)
+            .cloned()
+            .collect();
+
+        if chr_snps.is_empty() {
+            if config.verbose {
+                println!("  Warning: No SNPs found for chromosome {}", chr_num);
+            }
+            continue;
+        }
+
+        let mut hap_matrix = None;
+        if config.min_ld.is_some() || matches!(config.method, Method::LdHaploblock) {
+            match read_haplotype_file(hap_file, config.noheader, config.verbose) {
+                Ok(mat) => {
+                    if config.verbose {
+                        println!("  Loaded: {} haplotypes × {} SNPs", mat.nrows(), mat.ncols());
+                    }
+
+                    if mat.ncols() != chr_snps.len() {
+                        if config.verbose {
+                            println!("  WARNING: Dimension mismatch!");
+                            println!("    Haplotype file has {} SNPs", mat.ncols());
+                            println!("    Map file has {} SNPs for chr {}", chr_snps.len(), chr_num);
+                        }
+                    }
+
+                    hap_matrix = Some(mat);
+                }
+                Err(e) => {
+                    if config.verbose {
+                        println!("  Error loading haplotypes: {}", e);
+                    }
+                }
+            }
+        }
+
+        if config.verbose {
+            println!("  Map SNPs: {}", chr_snps.len());
+        }
+
+        let mut blocks = Vec::new();
+
+        match config.method {
+            Method::SnpCountSimple => {
+                let n_snps = chr_snps.len();
+                let sd = config.window_snps;
+                let rem = n_snps % sd;
+                let blks = (n_snps - rem) / sd;
+
+                for i in (0..blks * sd).step_by(sd) {
+                    blocks.push(Block {
+                        chr: chr_num,
+                        start_pos: chr_snps[i].position,
+                        end_pos: chr_snps[i + sd - 1].position,
+                        start_idx: i,
+                        end_idx: i + sd - 1,
+                        n_snps: sd,
+                        mean_ld_r2: None,
+                        criterion_b_score: None,
+                        selection_type: None,
+                        original_block_size: None,
+                        physical_span: None,
+                        split_type: None,
+                    });
+                }
+
+                if rem != 0 {
+                    let start_idx = n_snps - rem;
+                    blocks.push(Block {
+                        chr: chr_num,
+                        start_pos: chr_snps[start_idx].position,
+                        end_pos: chr_snps[n_snps - 1].position,
+                        start_idx,
+                        end_idx: n_snps - 1,
+                        n_snps: rem,
+                        mean_ld_r2: None,
+                        criterion_b_score: None,
+                        selection_type: None,
+                        original_block_size: None,
+                        physical_span: None,
+                        split_type: None,
+                    });
+                }
+            }
+
+            Method::LdHaploblock => {
+                let hap_mat = if let Some(ref mat) = hap_matrix {
+                    mat
+                } else {
+                    hap_matrix = Some(read_haplotype_file(hap_file, config.noheader, config.verbose)?);
+                    hap_matrix.as_ref().unwrap()
+                };
+
+                let snp_positions: Vec<i64> = chr_snps.iter().map(|s| s.position).collect();
+
+                if config.verbose {
+                    println!("  STAGE 1: Building LD haploblocks...");
+                }
+
+                let haploblocks = build_ld_haploblocks(
+                    hap_mat,
+                    Some(&snp_positions),
+                    config.d_prime_threshold,
+                    config.min_snps,
+                    config.verbose,
+                );
+
+                if config.verbose {
+                    println!("  Built {} LD haploblocks", haploblocks.len());
+                    match config.haplotype_type {
+                        HaplotypeType::Pure => {
+                            println!("  STAGE 2: Selecting best {}-SNP haplotypes from each block...", config.window_snps);
+                        }
+                        HaplotypeType::Micro => {
+                            println!("  STAGE 2: Splitting blocks into {}bp windows (microhaplotypes)...", config.window_bp);
+                        }
+                    }
+                }
+
+                let mut n_output = 0;
+                for haploblock in &haploblocks {
+                    match config.haplotype_type {
+                        HaplotypeType::Pure => {
+                            let selected = select_best_haplotype_from_haploblock(
+                                &haploblock,
+                                hap_mat,
+                                config.window_snps,
+                                config.aft,
+                                config.md,
+                            );
+
+                            let sel_indices = &selected.snp_indices;
+                            blocks.push(Block {
+                                chr: chr_num,
+                                start_pos: chr_snps[sel_indices[0]].position,
+                                end_pos: chr_snps[*sel_indices.last().unwrap()].position,
+                                start_idx: sel_indices[0],
+                                end_idx: *sel_indices.last().unwrap(),
+                                n_snps: selected.n_snps,
+                                mean_ld_r2: None,
+                                criterion_b_score: Some(selected.criterion_b_score),
+                                selection_type: Some(selected.selection_type),
+                                original_block_size: Some(selected.original_block_size),
+                                physical_span: None,
+                                split_type: None,
+                            });
+                            n_output += 1;
+                        }
+                        HaplotypeType::Micro => {
+                            let microhaplotypes = split_ld_block_by_physical_window(
+                                &haploblock,
+                                hap_mat,
+                                &chr_snps,
+                                config.window_bp,
+                                config.min_snps,
+                                config.aft,
+                                config.md,
+                            );
+
+                            for micro in microhaplotypes {
+                                let sel_indices = &micro.snp_indices;
+                                blocks.push(Block {
+                                    chr: chr_num,
+                                    start_pos: chr_snps[sel_indices[0]].position,
+                                    end_pos: chr_snps[*sel_indices.last().unwrap()].position,
+                                    start_idx: sel_indices[0],
+                                    end_idx: *sel_indices.last().unwrap(),
+                                    n_snps: micro.n_snps,
+                                    mean_ld_r2: None,
+                                    criterion_b_score: Some(micro.criterion_b_score),
+                                    selection_type: None,
+                                    original_block_size: None,
+                                    physical_span: Some(micro.physical_span),
+                                    split_type: Some(micro.split_type),
+                                });
+                                n_output += 1;
+                            }
+                        }
+                    }
+                }
+
+                if config.verbose {
+                    let output_label = match config.haplotype_type {
+                        HaplotypeType::Pure => "haplotypes",
+                        HaplotypeType::Micro => "microhaplotypes",
+                    };
+                    println!("  Generated {} {} from {} LD blocks", n_output, output_label, haploblocks.len());
+
+                    let scores: Vec<f64> = blocks
+                        .iter()
+                        .filter_map(|b| b.criterion_b_score)
+                        .filter(|s| !s.is_infinite())
+                        .collect();
+                    if !scores.is_empty() {
+                        let mean_score = scores.iter().sum::<f64>() / scores.len() as f64;
+                        println!("  Mean Criterion-B score: {:.6}", mean_score);
+                    }
+
+                    match config.haplotype_type {
+                        HaplotypeType::Pure => {
+                            let mut type_counts = std::collections::HashMap::new();
+                            for block in &blocks {
+                                if let Some(ref sel_type) = block.selection_type {
+                                    *type_counts.entry(sel_type.clone()).or_insert(0) += 1;
+                                }
+                            }
+                            println!("  Selection types: {:?}", type_counts);
+                        }
+                        HaplotypeType::Micro => {
+                            let spans: Vec<i64> = blocks.iter().filter_map(|b| b.physical_span).collect();
+                            if !spans.is_empty() {
+                                let mean_span = spans.iter().sum::<i64>() as f64 / spans.len() as f64;
+                                let mut sorted_spans = spans.clone();
+                                sorted_spans.sort();
+                                let median_span = sorted_spans[sorted_spans.len() / 2];
+                                println!("  Physical span - mean: {:.1} bp, median: {:.0} bp", mean_span, median_span);
+                            }
+
+                            let mut type_counts = std::collections::HashMap::new();
+                            for block in &blocks {
+                                if let Some(ref split_type) = block.split_type {
+                                    *type_counts.entry(split_type.clone()).or_insert(0) += 1;
+                                }
+                            }
+                            println!("  Split types: {:?}", type_counts);
+                        }
+                    }
+                }
+            }
+        }
+
+        if config.verbose {
+            println!("  Defined blocks: {}", blocks.len());
+        }
+
+        all_blocks.insert(chr_num, blocks);
+    }
+
+    Ok(all_blocks)
+}
+
+pub fn deduplicate_blocks(
+    mut all_blocks: BTreeMap<i32, Vec<Block>>,
+    verbose: bool,
+) -> BTreeMap<i32, Vec<Block>> {
+    let mut total_removed = 0;
+
+    for (chr_num, blocks) in all_blocks.iter_mut() {
+        if blocks.is_empty() {
+            continue;
+        }
+
+        let mut seen_ranges = HashSet::new();
+        let mut unique_blocks = Vec::new();
+        let mut duplicates = 0;
+
+        for block in blocks.iter() {
+            let snp_range: Vec<usize> = (block.start_idx..=block.end_idx).collect();
+            let range_key = format!("{:?}", snp_range);
+
+            if !seen_ranges.contains(&range_key) {
+                seen_ranges.insert(range_key);
+                unique_blocks.push(block.clone());
+            } else {
+                duplicates += 1;
+            }
+        }
+
+        let original_len = blocks.len();
+        *blocks = unique_blocks;
+        total_removed += duplicates;
+
+        if verbose && duplicates > 0 {
+            println!("  Chr {}: removed {} duplicate block(s) ({} → {})",
+                     chr_num, duplicates, original_len, blocks.len());
+        }
+    }
+
+    if verbose && total_removed > 0 {
+        println!("\nTotal duplicates removed: {}", total_removed);
+    }
+
+    all_blocks
+}

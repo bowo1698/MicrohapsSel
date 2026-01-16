@@ -1,15 +1,19 @@
 [package]
-name = "vcf-converter"
+name = "microhaplotype-preprocessing"
 version = "1.1.0"
 edition = "2021"
 
 [[bin]]
+name = "haplotype-hybrid"
+path = "src/bin/haplotype_hybrid.rs"
+
+[[bin]]
 name = "convert-to-vcf"
-path = "src/to_vcf.rs"
+path = "src/bin/to_vcf.rs"
 
 [[bin]]
 name = "convert-from-vcf"
-path = "src/from_vcf.rs"
+path = "src/bin/from_vcf.rs"
 
 [dependencies]
 clap = { version = "4.4", features = ["derive"] }
@@ -19,6 +23,9 @@ rayon = "1.8"
 anyhow = "1.0"
 chrono = "0.4"
 regex = "1.10"
+ndarray = "0.15"
+statrs = "0.16"
+itertools = "0.12"
 
 [profile.release]
 opt-level = 3

@@ -14,7 +14,7 @@ struct Args {
     #[arg(short = 'm', long = "map", required = true)]
     map: String,
 
-    #[arg(long = "method", default_value = "ld_haploblock")]
+    #[arg(long = "method", default_value = "ld-haploblock")]
     method: MethodArg,
 
     #[arg(long = "window-bp", default_value_t = 125)]

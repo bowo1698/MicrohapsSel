@@ -98,7 +98,7 @@ run_bayesA <- function(matrices, split, gblup_varcomp, config, fold = 0) {
   GEBV_test <- W_test %*% beta_A_hat
   
   # Calculate heritability
-  sigma2_g_bayesa <- var(GEBV_train)
+  sigma2_g_bayesa <- sum(sigma2_j_hat)
   h2_bayesa <- sigma2_g_bayesa / (sigma2_g_bayesa + sigma2_e_A_hat)
 
   cat("\nBayesA Posterior Means:\n")

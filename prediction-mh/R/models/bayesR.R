@@ -135,7 +135,9 @@ run_bayesR <- function(matrices, split, gblup_varcomp, config, fold = 0) {
   GEBV_test <- W_test %*% beta_hat
   
   # Calculate heritability
-  sigma2_g_bayesr <- var(GEBV_train)
+  sigma2_g_bayesr <- pi_hat[2] * sigma2_small_hat +
+                   pi_hat[3] * sigma2_medium_hat +
+                   pi_hat[4] * sigma2_large_hat
   h2_bayesr <- sigma2_g_bayesr / (sigma2_g_bayesr + sigma2_e_hat)
 
   cat("Posterior Means:\n")

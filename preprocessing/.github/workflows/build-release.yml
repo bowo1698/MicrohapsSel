@@ -11,6 +11,10 @@ jobs:
   build:
     name: Build ${{ matrix.config.target }}
     runs-on: ${{ matrix.config.os }}
+
+    defaults:
+      run:
+        working-directory: preprocessing
     
     strategy:
       fail-fast: false

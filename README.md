@@ -285,20 +285,23 @@ Each phased genotype (e.g., `0|1`) is split into two separate haplotype columns:
   - Haplotype 1: `1` (recoded from `0`)
   - Haplotype 2: `2` (recoded from `1`)
 
-This separation is essential because LD-based haploblock detection requires calculating pairwise D' between SNPs, which depends on counting the four possible haplotype combinations (00, 01, 10, 11).
+This separation is essential because LD-based haploblock detection requires calculating pairwise $D'$ between SNPs, which depends on counting the some possible haplotype combinations (e.g. 0|0, 0|1, 1|0, 1|1).
 
 **2. Allele recoding**
 
 VCF format uses `0` (reference) and `1` (alternate) encoding. The conversion recodes these to:
+
 - `0` → `1` (major allele)
 - `1` → `2` (minor allele)
 
 For genotypes (diploid coding):
+
 - `0|0` → `0` (homozygous major)
 - `0|1` or `1|0` → `1` (heterozygous)
 - `1|1` → `2` (homozygous minor)
 
 To handle large datasets, individuals are processed in chunks (batches) rather than all at once. The chunk size is determined by the `--interval` parameter:
+
 - `--interval 1`: Process all individuals in one pass (high memory)
 - `--interval 10`: Process in 10 batches (lower memory, slightly slower)
 
@@ -352,7 +355,7 @@ The separated haplotype files (`hap/chr*`) then serve as direct input for the ne
 
 ## Discovering microhaplotype segments and genotyping
 
-Because our purpose is to discover microhaplotype segments, we only use outputs from `hap/chr*` and perform arguments `--method ld-haploblock` and `--haplotype-type micro`. The `haplotype-hybrid` tool works with finding all potential haplotype candidates that meet an LD criteria (e.g., D' > 0.45) as the argument of `--d-prime-threshold 0.45` is applied. As a result, there may be less haplotype blocks are defined. After that, align with the microhaplotype definition, they are selected from the haplotype block candidates, where in each segment should contain consecutive SNPs within 125 or 150 bp which then they are evaluated using Criterion-B following [Jónás et al. (2017)](https://www.journalofdairyscience.org/article/S0022-0302(16)30076-5/fulltext), to ensure balance between allele frequency and microhaplotype diversity, following the calculation:
+Because our objective is to discover microhaplotype segments, we only use outputs from `hap/chr*` and perform arguments `--method ld-haploblock` and `--haplotype-type micro`. The `haplotype-hybrid` tool works with finding all potential haplotype candidates that meet an LD criteria (e.g., $D' > 0.45$) as the argument of `--d-prime-threshold 0.45` is applied. As a result, there may be less haplotype blocks are defined. After that, align with the microhaplotype definition, they are selected from the haplotype block candidates, where in each segment should contain consecutive SNPs within 125 or 150 bp which then they are evaluated using Criterion-B following [Jónás et al. (2017)](https://www.journalofdairyscience.org/article/S0022-0302(16)30076-5/fulltext) to ensure balance between allele frequency and microhaplotype diversity, following the calculation:
 
 $$CriterionB_{m h_i}=\sum_{k=1}^{N_i}\left(f_i-\frac{1}{H S}\right)^2-w N_i$$
 

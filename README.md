@@ -1,5 +1,8 @@
 # Pipeline for genomic prediction using microhaplotype markers
 
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Rust](https://img.shields.io/badge/Rust-1.78+-orange.svg)](https://www.rust-lang.org/)
+
 ## General information
 
 We adapted and optimised the GVCHAP pipeline from Prakapenka et al to handle large genomic data and utilise microhaplotype markers in genomic prediction. The pipeline consists of four key stages: (1) phasing, (2) converting phased data to haplotypes, (3) defining microhaplotype blocks, and finally, (4) encoding them into microhaplotype genotypes. The pipeline was optimised with Rust, so it has more efficient memory and enhanced scalability due to parallelisation. For phasing, we only used Beagle as the pipeline has not been developed for other phasing methods yet (e.g., FindHap, FImpute, etc.). In addition, we encourage the use of parallelisation techniques when phasing with Beagle. 
@@ -418,5 +421,32 @@ For example, at locus `hap_1_1`, individual `ind_1` has alleles `2` and `1`, mea
 - `-v, --verbose`: Display detailed progress and diagnostic information
 - `-h, --help`: Print help information
 
+## Want to help us?
 
+Contributions are welcome and very beneficial!
+You can email me to improve the Rust implementation, add a new model, documentation, benchmarks, or bug reporting. I will appreciate, really
 
+## License
+
+GPL-3 License - see [LICENSE](LICENSE) file
+
+Copyright (c) 2025 Agus Wibowo
+
+## Contact
+
+- **Email**: aguswibowo1698@gmail.com
+
+## References
+
+- Da, Y. Multi-allelic haplotype model based on genetic partition for genomic prediction and variance component estimation using SNP markers. [BMC Genet. 16, 144 (2015)](https://doi.org/10.1186/s12863-015-0301-1).
+
+- Prakapenka, D et.al. GVCHAP: A computing pipeline for genomic prediction and variance component estimation using haplotypes and SNP markers. [Front Genet. 11, 282(2020)](https://www.frontiersin.org/journals/genetics/articles/10.3389/fgene.2020.00282/full)
+
+## Development Team
+
+**Lead Developer:** Agus Wibowo  
+James Cook University
+
+**Supervisors:**  
+- Prof. Kyall Zenger
+- Dr. Cecile Massault

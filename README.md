@@ -279,6 +279,7 @@ This process results in a phased VCF file, for example:
 After phasing, we want to separate the phased haplotypes into individual haploid sequences for haploblock detection. Here, we provide `convert-from-vcf` for conversion, which accomplishes two key transformations:
 
 **1. Haplotype separation**
+
 Each phased genotype (e.g., `0|1`) is split into two separate haplotype columns:
 - Individual_A with genotype `0|1` becomes:
   - Haplotype 1: `1` (recoded from `0`)
@@ -287,6 +288,7 @@ Each phased genotype (e.g., `0|1`) is split into two separate haplotype columns:
 This separation is essential because LD-based haploblock detection requires calculating pairwise D' between SNPs, which depends on counting the four possible haplotype combinations (00, 01, 10, 11).
 
 **2. Allele recoding**
+
 VCF format uses `0` (reference) and `1` (alternate) encoding. The conversion recodes these to:
 - `0` → `1` (major allele)
 - `1` → `2` (minor allele)
@@ -303,6 +305,7 @@ To handle large datasets, individuals are processed in chunks (batches) rather t
 Each chunk reads through the VCF file sequentially, extracts the relevant individuals, and writes output incrementally. Data is automatically split by chromosome, creating separate output files (haplotypes and genotypes), for example:
 
 **Haplotype Files (`hap/chr*.hap`)**
+
 Format: Each individual contributes **two columns** (one per haplotype)
 ```
 ID                snp1_h1  snp1_h2  snp2_h1  snp2_h2  ...
@@ -313,6 +316,7 @@ Ind_2             2        2        1        2        ...
 This provides input for LD-based haploblock detection
 
 **Genotype Files (`geno/chr*.geno`)**
+
 Format: Traditional genotype matrix with header
 ```
 ID              snp1  snp2  snp3  ...
@@ -323,6 +327,7 @@ Ind_2           2     1     1     ...
 This provides input for GBLUP or other genotype-based prediction models that utilises biallelic SNPs.
 
 ### Usage Example
+
 ```bash
 ./convert-from-vcf \
       -i /data/genotypes_phased.vcf.gz \

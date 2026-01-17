@@ -2,7 +2,7 @@
 
 ## General information
 
-We adapted and optimised the GVCHAP pipeline from Prakapenka et al to handle large genomic data and utilise microhaplotype markers in genomic prediction. The pipeline consists of four key stages: (1) phasing, (2) converting phased data to haplotypes, (3) defining microhaplotype blocks, and finally, (4) encoding them into genotypes. The pipeline was optimised with Rust, so it has more efficient memory and enhanced scalability due to parallelisation. For phasing, we only used Beagle as the pipeline has not been developed for other phasing methods yet (e.g., FindHap, FImpute, etc.). In addition, we encourage the use of parallelisation techniques when phasing with Beagle. 
+We adapted and optimised the GVCHAP pipeline from Prakapenka et al to handle large genomic data and utilise microhaplotype markers in genomic prediction. The pipeline consists of four key stages: (1) phasing, (2) converting phased data to haplotypes, (3) defining microhaplotype blocks, and finally, (4) encoding them into microhaplotype genotypes. The pipeline was optimised with Rust, so it has more efficient memory and enhanced scalability due to parallelisation. For phasing, we only used Beagle as the pipeline has not been developed for other phasing methods yet (e.g., FindHap, FImpute, etc.). In addition, we encourage the use of parallelisation techniques when phasing with Beagle. 
 
 While haplotypes refer to long-range combinations of alleles along a chromosome, microhaplotypes can be defined as several SNPs covering a short DNA segment, typically 125 - 150 bp. So in this pipeline, conducted by `haplotype-hybrid`, we provide fixed window (SNP counts) and LD-based methods to define fully haplotype blocks and microhaplotype segments, respectively. When the `--method snp-count-simple` argument is used, it simply defines haplotype blocks depending on how many SNPs are set in each block. In contrast, when the `--method ld-haploblock` along with `--haplotype-type micro` argument is used, it will discover microhaplotypes based on LD and window constraints. However, both methods will result in similar data outputs.
 
@@ -118,11 +118,83 @@ This process results in a phased VCF file, for example:
 
 ## Convertion from phased genotypes to haplotypes
 
+After phasing, we want to separate the phased haplotypes into individual haploid sequences for haploblock detection. Here, we provide `convert-from-vcf` for conversion, which accomplishes two key transformations:
 
+**1. Haplotype separation**
+Each phased genotype (e.g., `0|1`) is split into two separate haplotype columns:
+- Individual_A with genotype `0|1` becomes:
+  - Haplotype 1: `1` (recoded from `0`)
+  - Haplotype 2: `2` (recoded from `1`)
 
+This separation is essential because LD-based haploblock detection requires calculating pairwise D' between SNPs, which depends on counting the four possible haplotype combinations (00, 01, 10, 11).
+
+**2. Allele recoding**
+VCF format uses `0` (reference) and `1` (alternate) encoding. The conversion recodes these to:
+- `0` → `1` (major allele)
+- `1` → `2` (minor allele)
+
+For genotypes (diploid coding):
+- `0|0` → `0` (homozygous major)
+- `0|1` or `1|0` → `1` (heterozygous)
+- `1|1` → `2` (homozygous minor)
+
+To handle large datasets, individuals are processed in chunks (batches) rather than all at once. The chunk size is determined by the `--interval` parameter:
+- `--interval 1`: Process all individuals in one pass (high memory)
+- `--interval 10`: Process in 10 batches (lower memory, slightly slower)
+
+Each chunk reads through the VCF file sequentially, extracts the relevant individuals, and writes output incrementally. Data is automatically split by chromosome, creating separate output files (haplotypes and genotypes), for example:
+
+**Haplotype Files (`hap/chr*.hap`)**
+Format: Each individual contributes **two columns** (one per haplotype)
+```
+ID              SNP1_h1  SNP1_h2  SNP2_h1  SNP2_h2  ...
+Individual_A    1        2        1        1        ...
+Individual_B    2        2        1        2        ...
+```
+
+This provides input for LD-based haploblock detection
+
+**Genotype Files (`geno/chr*.geno`)**
+Format: Traditional genotype matrix with header
+```
+ID              SNP1  SNP2  SNP3  ...
+Individual_A    1     0     2     ...
+Individual_B    2     1     1     ...
+```
+
+This provides input for GBLUP or other genotype-based prediction models that utilises biallelic SNPs.
+
+### Usage Example
+```bash
+./convert-from-vcf \
+      -i /data/genotypes_phased.vcf.gz \
+      --map map.txt \
+      --genofolder geno \
+      --hapfolder hap \
+      --nosort
+```
+
+### Key Parameters
+
+- `-i, --input`: VCF file(s) to convert (required)
+- `--interval`: Number of chunks for processing (default: 1)
+- `--hapfolder`: Output directory for haplotype files (default: `hap`)
+- `--genofolder`: Output directory for genotype files (default: `geno`)
+- `--map`: Output path for SNP map file (default: `map_new.txt`)
+- `--missing`: Code for missing genotypes (default: `-9999`)
+- `-V, --verbose`: Display detailed progress information
+
+The separated haplotype files (`hap/chr*`) then serve as direct input for the next step: defining microhaplotype segments using LD-based haploblock detection.
+
+## Discovering microhaplotype segments and genotyping
+
+Since our purpose is to discover microhaplotype segments, we only use outputs from `hap/chr*` and perform arguments `--method ld-haploblock` and `--haplotype-type micro`. The `haplotype-hybrid` tool works with finding all potential haplotype candidates that meet an LD criteria (e.g., D' > 0.45) as the argument of `--d-prime-threshold 0.45` is applied. As a result, there may be less haplotype blocks are defined. After that, align with the microhaplotype definition, they are selected from the haplotype block candidates, where in each segment should contain consecutive SNPs within 125 or 150 bp which then they are evaluated using Criterion-B following Jónás et al. (2017), to ensure balance between allele frequency and microhaplotype diversity, following the calculation:
+
+$$CriterionB_{m h_i}=\sum_{k=1}^{N_i}\left(f_i-\frac{1}{H S}\right)^2-w N_i$$
 
 ```bash
 chmod +x convert-from-vcf && xattr -d com.apple.quarantine convert-from-vcf
 chmod +x convert-to-vcf && xattr -d com.apple.quarantine convert-to-vcf
 chmod +x haplotype-hybrid && xattr -d com.apple.quarantine haplotype-hybrid
 ```
+

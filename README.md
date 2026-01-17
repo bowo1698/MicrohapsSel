@@ -30,8 +30,8 @@ We provide three tools for the microhaplotype discovery and genotyping preproces
 
 We provide two installation options:
 
-1. **Pre-compiled binaries** (Quick start): Download platform-specific executables from the [Releases](https://github.com/bowo1698/MicrohapsSel/releases/tag/v1.0) page
-2. **Build from source** (Recommended): Compile using Rust's Cargo package manager
+1. **Build from source** (Recommended): Compile using Rust's Cargo package manager
+2. **Pre-compiled binaries** (Quick start): Download platform-specific executables from the [Releases](https://github.com/bowo1698/MicrohapsSel/releases/tag/v1.0) page
 
 We strongly encourage building from source using Cargo, as different operating systems and hardware architectures may require specific optimisations.
 

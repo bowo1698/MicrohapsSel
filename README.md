@@ -8,12 +8,6 @@ While haplotypes refer to long-range combinations of alleles along a chromosome,
 
 ## Installation
 
-```bash
-chmod +x convert-from-vcf && xattr -d com.apple.quarantine convert-from-vcf
-chmod +x convert-to-vcf && xattr -d com.apple.quarantine convert-to-vcf
-chmod +x haplotype-hybrid && xattr -d com.apple.quarantine haplotype-hybrid
-```
-
 We provide three tools for the microhaplotype discovery and genotyping preprocessing pipeline:
 
 1.  **`convert-to-vcf`**: Converts genotype data from CSV format to standard VCF (Variant Call Format) file

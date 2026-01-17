@@ -4,7 +4,168 @@
 
 We adapted and optimised the GVCHAP pipeline from Prakapenka et al to handle large genomic data and utilise microhaplotype markers in genomic prediction. The pipeline consists of four key stages: (1) phasing, (2) converting phased data to haplotypes, (3) defining microhaplotype blocks, and finally, (4) encoding them into microhaplotype genotypes. The pipeline was optimised with Rust, so it has more efficient memory and enhanced scalability due to parallelisation. For phasing, we only used Beagle as the pipeline has not been developed for other phasing methods yet (e.g., FindHap, FImpute, etc.). In addition, we encourage the use of parallelisation techniques when phasing with Beagle. 
 
-While haplotypes refer to long-range combinations of alleles along a chromosome, microhaplotypes can be defined as several SNPs covering a short DNA segment, typically 125 - 150 bp. So in this pipeline, conducted by `haplotype-hybrid`, we provide fixed window (SNP counts) and LD-based methods to define fully haplotype blocks and microhaplotype segments, respectively. When the `--method snp-count-simple` argument is used, it simply defines haplotype blocks depending on how many SNPs are set in each block. In contrast, when the `--method ld-haploblock` along with `--haplotype-type micro` argument is used, it will discover microhaplotypes based on LD and window constraints. However, both methods will result in similar data outputs.
+While haplotypes refer to long-range combinations of alleles along a chromosome, microhaplotypes can be defined as several SNPs covering a short DNA segment, typically 125 - 150 bp. So in this pipeline, conducted by `haplotype-hybrid`, we provide fixed window (SNP counts) and LD-based methods to define fully haplotype blocks and microhaplotype segments, respectively. When the `--method snp-count-simple` argument is used, it simply defines haplotype blocks depending on how many SNPs are set in each block. In contrast, when the `--method ld-haploblock` along with `--haplotype-type micro` arguments are used, it will discover microhaplotypes based on LD and window constraints. However, both methods will result in similar data outputs.
+
+## Installation
+
+```bash
+chmod +x convert-from-vcf && xattr -d com.apple.quarantine convert-from-vcf
+chmod +x convert-to-vcf && xattr -d com.apple.quarantine convert-to-vcf
+chmod +x haplotype-hybrid && xattr -d com.apple.quarantine haplotype-hybrid
+```
+
+We provide three tools for the microhaplotype discovery and genotyping preprocessing pipeline:
+
+1.  **`convert-to-vcf`**: Converts genotype data from CSV format to standard VCF (Variant Call Format) file
+    - Input: CSV file with SNP genotypes (0/1/2 coding)
+    - Output: VCF file compatible with phasing software (e.g., Beagle)
+
+2.  **`convert-from-vcf`**: Extracts phased haplotype data from VCF files
+    - Input: Phased VCF file (after running phasing software)
+    - Output: Separated haplotype files per chromosome for downstream analysis
+    - Generates SNP map file for position information
+
+3.  **`haplotype-hybrid`**: Discovers microhaplotype segments using LD-based haploblock identification and performs genotyping
+    - Input: Phased haplotype files and SNP map
+    - Methods: LD-based haploblock discovery (Jonas et al. 2017) or fixed-window segmentation
+    - Output: Microhaplotype block definitions and numerical genotype matrix
+    - Implements Criterion-B scoring for optimal haplotype selection
+
+We provide two installation options:
+
+1. **Pre-compiled binaries** (Quick start): Download platform-specific executables from the [Releases](https://github.com/bowo1698/MicrohapsSel/releases/tag/v1.0) page
+2. **Build from source** (Recommended): Compile using Rust's Cargo package manager
+
+We strongly encourage building from source using Cargo, as different operating systems and hardware architectures may require specific optimisations.
+
+### 1. Build from source
+
+**Prerequisites for Building from Source**
+
+- Rust toolchain** (version 1.70 or later recommended): Install from [rustup.rs](https://rustup.rs)
+
+**Build Instructions**
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/bowo1698/MicrohapsSel.git
+cd MicrohapsSel
+
+# 2. Navigate to preprocessing directory
+cd preprocessing
+
+# 3. Build all tools in release mode (optimized)
+cargo build --release
+
+# 4. Compiled binaries will be available in:
+# ./target/release/convert-to-vcf
+# ./target/release/convert-from-vcf
+# ./target/release/haplotype-hybrid
+
+# 5. (Optional) Add to system PATH for global access
+# For Linux/macOS:
+export PATH="$PWD/target/release:$PATH"
+# Add to ~/.bashrc or ~/.zshrc to make permanent
+
+# For Windows (PowerShell):
+$env:Path += ";$PWD\target\release"
+# Add to system environment variables to make permanent
+
+# 6. Verify installation
+./convert-to-vcf --help
+./convert-from-vcf --help
+./haplotype-hybrid --help
+```
+
+### 2. Pre-compiled binaries
+
+Download platform-specific binaries from the links below:
+
+- **Linux (x86_64)**: [microhaplotype-tools-x64-linux.tar.gz](https://github.com/bowo1698/MicrohapsSel/releases/download/v1.0/microhaplotype-tools-x64-linux.tar.gz)
+- **macOS (Intel)**: [microhaplotype-tools-x64-macos.tar.gz](https://github.com/bowo1698/MicrohapsSel/releases/download/v1.0/microhaplotype-tools-x64-macos.tar.gz)
+- **macOS (Apple Silicon)**: [microhaplotype-tools-arm64-macos.tar.gz](https://github.com/bowo1698/MicrohapsSel/releases/download/v1.0/microhaplotype-tools-arm64-macos.tar.gz)
+- **Windows (x86_64)**: [microhaplotype-tools-x64-windows.zip](https://github.com/bowo1698/MicrohapsSel/releases/download/v1.0/microhaplotype-tools-x64-windows.zip)
+
+**Linux:**
+```bash
+# Download and extract
+wget https://github.com/bowo1698/MicrohapsSel/releases/download/v1.0/microhaplotype-tools-x64-linux.tar.gz
+tar -xzf microhaplotype-tools-x64-linux.tar.gz
+cd microhaplotype-tools-x64-linux
+
+# Make executable
+chmod +x convert-to-vcf convert-from-vcf haplotype-hybrid
+
+# Test installation
+./convert-to-vcf --help
+./convert-from-vcf --help
+./haplotype-hybrid --help
+
+# (Optional) Move to system PATH for global access
+sudo mv convert-to-vcf convert-from-vcf haplotype-hybrid /usr/local/bin/
+```
+
+**macOS (Intel x86_64):**
+```bash
+# Download and extract
+curl -L -O https://github.com/bowo1698/MicrohapsSel/releases/download/v1.0/microhaplotype-tools-x64-macos.tar.gz
+tar -xzf microhaplotype-tools-x64-macos.tar.gz
+cd microhaplotype-tools-x64-macos
+
+# Remove macOS quarantine attribute and make executable
+chmod +x convert-to-vcf convert-from-vcf haplotype-hybrid
+xattr -d com.apple.quarantine convert-to-vcf convert-from-vcf haplotype-hybrid
+
+# Test installation
+./convert-to-vcf --help
+./convert-from-vcf --help
+./haplotype-hybrid --help
+
+# (Optional) Move to system PATH for global access
+sudo mv convert-to-vcf convert-from-vcf haplotype-hybrid /usr/local/bin/
+```
+
+**macOS (Apple silicon ARM64):**
+```bash
+# Download and extract
+curl -L -O https://github.com/bowo1698/MicrohapsSel/releases/download/v1.0/microhaplotype-tools-arm64-macos.tar.gz
+tar -xzf microhaplotype-tools-arm64-macos.tar.gz
+cd microhaplotype-tools-arm64-macos
+
+# Remove macOS quarantine attribute and make executable
+chmod +x convert-to-vcf convert-from-vcf haplotype-hybrid
+xattr -d com.apple.quarantine convert-to-vcf convert-from-vcf haplotype-hybrid
+
+# Test installation
+./convert-to-vcf --help
+./convert-from-vcf --help
+./haplotype-hybrid --help
+
+# (Optional) Move to system PATH for global access
+sudo mv convert-to-vcf convert-from-vcf haplotype-hybrid /usr/local/bin/
+```
+
+**Windows:**
+```powershell
+# Download (using PowerShell)
+Invoke-WebRequest -Uri "https://github.com/bowo1698/MicrohapsSel/releases/download/v1.0/microhaplotype-tools-x64-windows.zip" -OutFile "microhaplotype-tools-x64-windows.zip"
+
+# Extract
+Expand-Archive -Path microhaplotype-tools-x64-windows.zip -DestinationPath microhaplotype-tools-x64-windows
+cd microhaplotype-tools-x64-windows
+
+# Test installation (no chmod needed on Windows)
+.\convert-to-vcf.exe --help
+.\convert-from-vcf.exe --help
+.\haplotype-hybrid.exe --help
+
+# (Optional) Add to system PATH:
+# 1. Copy full path of current directory: Get-Location
+# 2. Search "Environment Variables" in Windows Start menu
+# 3. Edit "Path" variable → Add new entry with the copied path
+```
+
+**Note:** On macOS, if you still get security warnings after using `xattr`, go to System Preferences → Security & Privacy → General, and click "Allow Anyway" for each blocked binary.
 
 ## Data preparation
 
@@ -147,9 +308,9 @@ Each chunk reads through the VCF file sequentially, extracts the relevant indivi
 **Haplotype Files (`hap/chr*.hap`)**
 Format: Each individual contributes **two columns** (one per haplotype)
 ```
-ID              SNP1_h1  SNP1_h2  SNP2_h1  SNP2_h2  ...
-Individual_A    1        2        1        1        ...
-Individual_B    2        2        1        2        ...
+ID                snp1_h1  snp1_h2  snp2_h1  snp2_h2  ...
+Ind_1             1        2        1        1        ...
+Ind_2             2        2        1        2        ...
 ```
 
 This provides input for LD-based haploblock detection
@@ -157,9 +318,9 @@ This provides input for LD-based haploblock detection
 **Genotype Files (`geno/chr*.geno`)**
 Format: Traditional genotype matrix with header
 ```
-ID              SNP1  SNP2  SNP3  ...
-Individual_A    1     0     2     ...
-Individual_B    2     1     1     ...
+ID              snp1  snp2  snp3  ...
+Ind_1           1     0     2     ...
+Ind_2           2     1     1     ...
 ```
 
 This provides input for GBLUP or other genotype-based prediction models that utilises biallelic SNPs.
@@ -182,7 +343,8 @@ This provides input for GBLUP or other genotype-based prediction models that uti
 - `--genofolder`: Output directory for genotype files (default: `geno`)
 - `--map`: Output path for SNP map file (default: `map_new.txt`)
 - `--missing`: Code for missing genotypes (default: `-9999`)
-- `-V, --verbose`: Display detailed progress information
+- `-v, --verbose`: Display detailed progress information
+- `-h, --help`: Print help information
 
 The separated haplotype files (`hap/chr*`) then serve as direct input for the next step: defining microhaplotype segments using LD-based haploblock detection.
 
@@ -194,9 +356,73 @@ $$CriterionB_{m h_i}=\sum_{k=1}^{N_i}\left(f_i-\frac{1}{H S}\right)^2-w N_i$$
 
 In the first term, $m h_i$ denotes microhaplotype $i$, $f_i$ is the frequency of microhaplotype allele, and $HS=2^n$ is the theoretical maximum number of alleles for n SNPs. In the second term, $w$ is calculated as $(MD.N_i)/(HS.(N_i-1) )$, where $MD$ is the scaling parameter of maximum deviation to control the magnitude of microhaplotype diversity. We set the $MD$ as $0.1$ following (Jónás et al., 2017). The $N_i$ represents the number of predictable alleles for microhaplotype $i$ that have a frequency above the allele frequency threshold ($AFT≥0.08$). 
 
-```bash
-chmod +x convert-from-vcf && xattr -d com.apple.quarantine convert-from-vcf
-chmod +x convert-to-vcf && xattr -d com.apple.quarantine convert-to-vcf
-chmod +x haplotype-hybrid && xattr -d com.apple.quarantine haplotype-hybrid
+The final genotype data will be:
+
 ```
+  individual_id    hap_1_1 hap_1_1_1 hap_1_2 hap_1_2_1 hap_1_3 hap_1_3_1 hap_1_4
+1 ind_1            2         1       1         2       3         3       1
+2 ind_1            1         3       2         2       3         2       1
+3 ind_1            3         1       2         2       2         3       2
+4 ind_1            3         1       2         2       2         1       2
+5 ind_1            1         2       2         1       3         3       1
+6 ind_1            2         1       1         2       3         1       1
+```
+
+This genotype data consists of numerical microhaplotype alleles in diploid format, where each number represents a unique combination of SNP sequences in a specific genomic block. Each locus is presented in two side-by-side columns to show the pair of haplotypes inherited from each individual's parents. 
+
+For example, at locus `hap_1_1`, individual `ind_1` has alleles `2` and `1`, meaning they inherited microhaplotype variant 2 from one parent and variant 1 from the other, where each variant represents a distinct multi-SNP sequence pattern (e.g., variant 1 might be "AACG" while variant 2 is "ATCG" for a 4-SNP microhaplotype).
+
+### Usage Example
+
+```bash
+# microhaplotype discovery and genotyping
+./haplotype-hybrid \
+      --method ld-haploblock \
+      --haplotype-type micro \
+      --d-prime-threshold 0.45 \
+      --window-bp 125 \
+      --min-snps 2 \
+      --aft 0.08 \
+      --md 0.10 \
+      -i hap/chr* \
+      -m map.txt \
+      -o mh_info_ld_haploblock \
+      --generate-genotypes mh_genotypes \
+      -v
+
+# fully haplotype discovery and genotyping
+./haplotype-hybrid \
+    --method snp-count-simple \
+    -w 4 \
+    -i hap/chr* \
+    -m map.txt \
+    -o hap_info_snp_4 \
+    --generate-genotypes haplo_genotypes \
+    -v
+```
+
+### Key Parameters
+
+- `-i, --input <INPUT>...`: Phased haplotype files, one per chromosome (required, e.g., `hap/chr*`)
+- `-m, --map <MAP>`: SNP map file with columns: SNPID, Chr, Position (required)
+- `--method <METHOD>`: Block definition method (default: `ld_haploblock`, possible values: `ld-haploblock`, `snp-count-simple`)
+- `--haplotype-type <HAPLOTYPE_TYPE>`: For LD method - `pure` selects best N-SNP haplotype per block, `micro` splits blocks into physical windows (default: `pure`, possible values: `pure`, `micro`)
+- `--d-prime-threshold <D_PRIME_THRESHOLD>`: D' threshold for consecutive SNP LD in haploblock discovery (default: `0.45`, Jonas 2017)
+- `--window-bp <WINDOW_BP>`: Physical window size in base pairs for microhaplotype segments (default: `125`)
+- `-w, --window <WINDOW>`: Haplotype size in SNPs for `pure` mode or window size for `snp-count-simple` (default: `4`)
+- `--min-snps <MIN_SNPS>`: Minimum SNPs required per block (default: `2`)
+- `--max-snps <MAX_SNPS>`: Maximum SNPs allowed per block (default: `4`)
+- `--aft <AFT>`: Allele Frequency Threshold for Criterion-B score calculation (default: `0.08`)
+- `--md <MD>`: Maximum Deviation parameter for Criterion-B weighting (default: `0.1`)
+- `--min-ld <MIN_LD>`: Minimum mean LD (r²) threshold for block filtering (optional, e.g., `0.3`)
+- `--no-dedup`: Skip deduplication of blocks with identical SNP ranges
+- `--noheader`: Specify if haplotype input files have no header row
+- `-o, --output <OUTPUT>`: Output directory for block definition files (default: `hap_info_microhap`)
+- `--generate-genotypes <GENERATE_GENOTYPES>`: Generate haplotype genotype files with specified prefix (e.g., `mh_geno_ld`)
+- `--missing <MISSING>`: Code for missing alleles in genotype output (e.g., `9`)
+- `--missing-value <MISSING_VALUE>`: Replacement value for blocks containing missing alleles (default: `-9999`)
+- `-v, --verbose`: Display detailed progress and diagnostic information
+- `-h, --help`: Print help information
+
+
 

@@ -33,7 +33,7 @@ We provide two installation options:
 1. **Build from source** (Recommended): Compile using Rust's Cargo package manager
 2. **Pre-compiled binaries** (Quick start): Download platform-specific executables from the [Releases](https://github.com/bowo1698/MicrohapsSel/releases/tag/v1.0) page
 
-We strongly encourage building from source using Cargo, as different operating systems and hardware architectures may require specific optimisations.
+> We strongly encourage building from source using Cargo, as different operating systems and hardware architectures may require specific optimisations.
 
 ### 1. Build from source
 
@@ -377,7 +377,7 @@ This genotype data consists of numerical microhaplotype alleles in diploid forma
 
 For example, at locus `hap_1_1`, individual `ind_1` has alleles `2` and `1`, meaning they inherited microhaplotype variant 2 from one parent and variant 1 from the other, where each variant represents a distinct multi-SNP sequence pattern (e.g., variant 1 might be "AACG" while variant 2 is "ATCG" for a 4-SNP microhaplotype).
 
-It is important to note that, as we apply multiple criteria, generated microhaplotype segments will be significantly lower than fully haplotype blocks. The main advantage of this system is that we effectively use lower computational resources than haplotype-based genotypes or even biallelic SNPs. Therefore, a specialised coding matrix and model are strongly required to handle such genotype data, particularly to prevent multicollinearity while effectively utilising the multiallelic power.
+> It is important to note that, as we apply multiple criteria, generated microhaplotype segments will be significantly lower than fully haplotype blocks. The main advantage of this system is that we effectively use lower computational resources than haplotype-based genotypes or even biallelic SNPs. Therefore, a specialised coding matrix and model are strongly required to handle such genotype data, particularly to prevent multicollinearity while effectively utilising the multiallelic power.
 
 ### Usage Example
 

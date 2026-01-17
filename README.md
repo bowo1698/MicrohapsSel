@@ -347,7 +347,7 @@ The separated haplotype files (`hap/chr*`) then serve as direct input for the ne
 
 ## Discovering microhaplotype segments and genotyping
 
-Because our purpose is to discover microhaplotype segments, we only use outputs from `hap/chr*` and perform arguments `--method ld-haploblock` and `--haplotype-type micro`. The `haplotype-hybrid` tool works with finding all potential haplotype candidates that meet an LD criteria (e.g., D' > 0.45) as the argument of `--d-prime-threshold 0.45` is applied. As a result, there may be less haplotype blocks are defined. After that, align with the microhaplotype definition, they are selected from the haplotype block candidates, where in each segment should contain consecutive SNPs within 125 or 150 bp which then they are evaluated using Criterion-B following Jónás et al. (2017), to ensure balance between allele frequency and microhaplotype diversity, following the calculation:
+Because our purpose is to discover microhaplotype segments, we only use outputs from `hap/chr*` and perform arguments `--method ld-haploblock` and `--haplotype-type micro`. The `haplotype-hybrid` tool works with finding all potential haplotype candidates that meet an LD criteria (e.g., D' > 0.45) as the argument of `--d-prime-threshold 0.45` is applied. As a result, there may be less haplotype blocks are defined. After that, align with the microhaplotype definition, they are selected from the haplotype block candidates, where in each segment should contain consecutive SNPs within 125 or 150 bp which then they are evaluated using Criterion-B following [Jónás et al. (2017)](https://www.journalofdairyscience.org/article/S0022-0302(16)30076-5/fulltext), to ensure balance between allele frequency and microhaplotype diversity, following the calculation:
 
 $$CriterionB_{m h_i}=\sum_{k=1}^{N_i}\left(f_i-\frac{1}{H S}\right)^2-w N_i$$
 
@@ -438,7 +438,9 @@ Copyright (c) 2025 Agus Wibowo
 
 ## References
 
-- Da, Y. Multi-allelic haplotype model based on genetic partition for genomic prediction and variance component estimation using SNP markers. [BMC Genet. 16, 144 (2015)](https://doi.org/10.1186/s12863-015-0301-1).
+- Da, Y. Multi-allelic haplotype model based on genetic partition for genomic prediction and variance component estimation using SNP markers. [BMC Genet. 16, 144 (2015)](https://doi.org/10.1186/s12863-015-0301-1)
+
+- Jonas, D. et.al. Alternative haplotype construction methods for genomic evaluation. [Journal of Dairy Science. 99, 6(2016)](https://www.journalofdairyscience.org/article/S0022-0302(16)30076-5/fulltext)
 
 - Prakapenka, D et.al. GVCHAP: A computing pipeline for genomic prediction and variance component estimation using haplotypes and SNP markers. [Front Genet. 11, 282(2020)](https://www.frontiersin.org/journals/genetics/articles/10.3389/fgene.2020.00282/full)
 

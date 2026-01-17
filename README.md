@@ -36,7 +36,7 @@ We strongly encourage building from source using Cargo, as different operating s
 
 **Prerequisites for Building from Source**
 
-- Rust toolchain** (version 1.70 or later recommended): Install from [rustup.rs](https://rustup.rs)
+- **Rust toolchain** (version 1.70 or later recommended): Install from [rustup.rs](https://rustup.rs)
 
 **Build Instructions**
 

@@ -438,7 +438,7 @@ Copyright (c) 2025 Agus Wibowo
 
 ## References
 
-- Da, Y. Multi-allelic haplotype model based on genetic partition for genomic prediction and variance component estimation using SNP markers. [BMC Genet. 16, 144 (2015)](https://doi.org/10.1186/s12863-015-0301-1)
+- Da, Y. Multi-allelic haplotype model based on genetic partition for genomic prediction and variance component estimation using SNP markers. [BMC Genet. 16, 144(2015)](https://doi.org/10.1186/s12863-015-0301-1)
 
 - Jonas, D. et.al. Alternative haplotype construction methods for genomic evaluation. [Journal of Dairy Science. 99, 6(2016)](https://www.journalofdairyscience.org/article/S0022-0302(16)30076-5/fulltext)
 

@@ -37,11 +37,11 @@ We strongly encourage building from source using Cargo, as different operating s
 
 ### 1. Build from source
 
-**Prerequisites for Building from Source**
+**Prerequisites for building from source**
 
 - **Rust toolchain** (version 1.70 or later recommended): Install from [rustup.rs](https://rustup.rs)
 
-**Build Instructions**
+**Build instructions**
 
 ```bash
 # 1. Clone the repository

@@ -188,9 +188,11 @@ The separated haplotype files (`hap/chr*`) then serve as direct input for the ne
 
 ## Discovering microhaplotype segments and genotyping
 
-Since our purpose is to discover microhaplotype segments, we only use outputs from `hap/chr*` and perform arguments `--method ld-haploblock` and `--haplotype-type micro`. The `haplotype-hybrid` tool works with finding all potential haplotype candidates that meet an LD criteria (e.g., D' > 0.45) as the argument of `--d-prime-threshold 0.45` is applied. As a result, there may be less haplotype blocks are defined. After that, align with the microhaplotype definition, they are selected from the haplotype block candidates, where in each segment should contain consecutive SNPs within 125 or 150 bp which then they are evaluated using Criterion-B following Jónás et al. (2017), to ensure balance between allele frequency and microhaplotype diversity, following the calculation:
+Because our purpose is to discover microhaplotype segments, we only use outputs from `hap/chr*` and perform arguments `--method ld-haploblock` and `--haplotype-type micro`. The `haplotype-hybrid` tool works with finding all potential haplotype candidates that meet an LD criteria (e.g., D' > 0.45) as the argument of `--d-prime-threshold 0.45` is applied. As a result, there may be less haplotype blocks are defined. After that, align with the microhaplotype definition, they are selected from the haplotype block candidates, where in each segment should contain consecutive SNPs within 125 or 150 bp which then they are evaluated using Criterion-B following Jónás et al. (2017), to ensure balance between allele frequency and microhaplotype diversity, following the calculation:
 
 $$CriterionB_{m h_i}=\sum_{k=1}^{N_i}\left(f_i-\frac{1}{H S}\right)^2-w N_i$$
+
+In the first term, $m h_i$ denotes microhaplotype $i$, $f_i$ is the frequency of microhaplotype allele, and $HS=2^n$ is the theoretical maximum number of alleles for n SNPs. In the second term, $w$ is calculated as $(MD.N_i)/(HS.(N_i-1) )$, where $MD$ is the scaling parameter of maximum deviation to control the magnitude of microhaplotype diversity. We set the $MD$ as $0.1$ following (Jónás et al., 2017). The $N_i$ represents the number of predictable alleles for microhaplotype $i$ that have a frequency above the allele frequency threshold ($AFT≥0.08$). 
 
 ```bash
 chmod +x convert-from-vcf && xattr -d com.apple.quarantine convert-from-vcf

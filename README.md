@@ -355,7 +355,7 @@ The separated haplotype files (`hap/chr*`) then serve as direct input for the ne
 
 ## Discovering microhaplotype segments and genotyping
 
-Because our objective is to discover microhaplotype segments, we only use outputs from `hap/chr*` and perform arguments `--method ld-haploblock` and `--haplotype-type micro`. The `haplotype-hybrid` tool works with finding all potential haplotype candidates that meet an LD criteria (e.g., $D' > 0.45$) as the argument of `--d-prime-threshold 0.45` is applied. As a result, there may be less haplotype blocks are defined. After that, align with the microhaplotype definition, they are selected from the haplotype block candidates, where in each segment should contain consecutive SNPs within 125 or 150 bp which then they are evaluated using Criterion-B following [Jónás et al. (2017)](https://www.journalofdairyscience.org/article/S0022-0302(16)30076-5/fulltext) to ensure balance between allele frequency and microhaplotype diversity, following the calculation:
+Because our objective is to discover microhaplotype segments, we only use outputs from `hap/chr*` and perform arguments `--method ld-haploblock` and `--haplotype-type micro`. The `haplotype-hybrid` tool works with finding all potential haplotype candidates that meet an LD criteria (e.g., $D' > 0.45$) as the argument of `--d-prime-threshold 0.45` is applied. After that, align with the microhaplotype definition, they are selected from the haplotype block candidates, where in each segment should contain consecutive SNPs within 125 or 150 bp which then they are evaluated using Criterion-B following [Jónás et al. (2017)](https://www.journalofdairyscience.org/article/S0022-0302(16)30076-5/fulltext) to ensure balance between allele frequency and microhaplotype diversity, following the calculation:
 
 $$CriterionB_{m h_i}=\sum_{k=1}^{N_i}\left(f_i-\frac{1}{H S}\right)^2-w N_i$$
 
@@ -376,6 +376,8 @@ The final genotype data will be:
 This genotype data consists of numerical microhaplotype alleles in diploid format, where each number represents a unique combination of SNP sequences in a specific genomic block. Each locus is presented in two side-by-side columns to show the pair of haplotypes inherited from each individual's parents. 
 
 For example, at locus `hap_1_1`, individual `ind_1` has alleles `2` and `1`, meaning they inherited microhaplotype variant 2 from one parent and variant 1 from the other, where each variant represents a distinct multi-SNP sequence pattern (e.g., variant 1 might be "AACG" while variant 2 is "ATCG" for a 4-SNP microhaplotype).
+
+It is important to note that, as we apply multiple criteria, generated microhaplotype segments will be significantly lower than fully haplotype blocks. The main advantage of this system is that we effectively use lower computational resources than haplotype-based genotypes or even biallelic SNPs. Therefore, a specialised coding matrix and model are strongly required to handle such genotype data, particularly to prevent multicollinearity while effectively utilising the multiallelic power.
 
 ### Usage Example
 

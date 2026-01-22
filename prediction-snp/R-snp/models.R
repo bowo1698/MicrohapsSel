@@ -4,7 +4,6 @@
 suppressPackageStartupMessages({
   library(sommer)
   library(hibayes)
-  library(xgboost)
 })
 
 train_gblup <- function(y_train, GRM_train, n_threads) {
@@ -271,56 +270,6 @@ predict_bayesR <- function(fit, geno_val_filtered) {
   result <- tryCatch({
     pred_time <- system.time({
       pred <- as.vector(fit$mu + geno_val_filtered %*% fit$alpha)
-    })
-    
-    list(success = TRUE, pred = pred, pred_time = pred_time[3])
-  }, error = function(e) {
-    list(success = FALSE, pred = NA, pred_time = NA)
-  })
-  
-  return(result)
-}
-
-train_xgb <- function(geno_train, y_train, config, n_threads = 1) {
-  result <- tryCatch({
-    train_time <- system.time({
-      xgb_train <- xgb.DMatrix(data = geno_train, label = y_train)
-      fit <- xgb.train(
-        params = list(
-          objective = "reg:squarederror",
-          nthread = n_threads,
-          eta = config$xgb$eta,
-          max_depth = config$xgb$max_depth,
-          subsample = config$xgb$subsample,
-          colsample_bytree = config$xgb$colsample_bytree,
-          lambda = config$xgb$lambda
-        ),
-        data = xgb_train,
-        nrounds = config$xgb$nrounds,
-        verbose = 0
-      )
-    })
-    
-    list(success = TRUE, fit = fit, train_time = train_time[3])
-  }, error = function(e) {
-    cat("XGBoost FAILED:", e$message, "\n")
-    list(success = FALSE, train_time = NA)
-  })
-  
-  return(result)
-}
-
-predict_xgb_train <- function(fit, geno_train) {
-  dtrain <- xgb.DMatrix(data = geno_train)
-  pred <- predict(fit, dtrain)
-  list(pred = pred)
-}
-
-predict_xgb <- function(fit, geno_val) {
-  result <- tryCatch({
-    pred_time <- system.time({
-      dval <- xgb.DMatrix(data = geno_val)
-      pred <- predict(fit, dval)
     })
     
     list(success = TRUE, pred = pred, pred_time = pred_time[3])

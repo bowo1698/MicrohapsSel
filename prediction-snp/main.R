@@ -39,7 +39,6 @@ registerDoParallel(cl)
 clusterEvalQ(cl, {
   library(tidyverse)
   library(sommer)
-  library(xgboost)
   library(coda)
   library(gridExtra)
   library(caret)
@@ -94,12 +93,11 @@ clusterExport(cl, c("config", "n_threads_per_fold"))
 clusterExport(cl, c("train_gblup", "predict_gblup", "predict_gblup_train",
                     "train_bayesA", "predict_bayesA", "predict_bayesA_train",
                     "train_bayesR", "predict_bayesR", "predict_bayesR_train",
-                    "train_xgb", "predict_xgb", "predict_xgb_train",
                     "evaluate_model", "evaluate_model_train"))
 
 # Run cross-validation in parallel
 all_results <- foreach(fold = 1:config$k_folds,
-                       .packages = c("tidyverse", "xgboost", "coda", "sommer", "hibayes"),
+                       .packages = c("tidyverse", "coda", "sommer", "hibayes"),
                        .errorhandling = "pass", #pass
                        .verbose = TRUE) %dopar% {
   
@@ -258,37 +256,6 @@ all_results <- foreach(fold = 1:config$k_folds,
       rm(bayesR_pred_train, bayesR_pred, eval_train, eval_val)
     }
     rm(bayesR_fit); invisible(gc(full = TRUE))
-    
-    # XGBoost
-    cat("Starting XGBoost...\n")
-    xgb_fit <- train_xgb(geno_train, y_train, config, n_threads_per_fold)
-    cat("  XGboost fit success:", xgb_fit$success, "\n")
-    if(xgb_fit$success) {
-      xgb_pred_train <- predict_xgb_train(xgb_fit$fit, geno_train)
-      xgb_pred <- predict_xgb(xgb_fit$fit, geno_val)
-      
-      if(xgb_pred$success) {
-        eval_train <- evaluate_model_train(xgb_pred_train$pred, tbv_train, y_train, "XGBoost")
-        eval_val <- evaluate_model(xgb_pred$pred, tbv_val, y_val, "XGBoost")
-        results_fold$XGBoost <- data.frame(
-          Fold = fold,
-          eval_val,
-          eval_train,
-          Train_Time = xgb_fit$train_time,
-          Pred_Time = xgb_pred$pred_time,
-          h2 = NA,
-          stringsAsFactors = FALSE
-        )
-        predictions_fold$XGBoost <- xgb_pred$pred
-
-        cat(sprintf("Fold %d - XGBoost | TBV: Train=%.3f Test=%.3f | Pheno: Train=%.3f Test=%.3f | Time: %.2f min\n",
-              fold, eval_train$Cor_TBV_Train, eval_val$Cor_TBV,
-              eval_train$Cor_Pheno_Train, eval_val$Cor_Pheno,
-              xgb_fit$train_time/60))
-      }
-      rm(xgb_pred_train, xgb_pred, eval_train, eval_val)
-    }
-    rm(xgb_fit); invisible(gc(full = TRUE))
 
     # Cleanup fold-level objects
     rm(geno_train, geno_val, geno_train_standardized, geno_val_standardized,

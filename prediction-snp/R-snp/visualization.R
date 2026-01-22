@@ -22,10 +22,6 @@ plot_scatter <- function(all_predictions_combined, config) {
     available_models <- c(available_models, "BayesR")
     pred_cols <- c(pred_cols, all_predictions_combined$BayesR)
   }
-  if(!all(is.na(all_predictions_combined$XGBoost))) {
-    available_models <- c(available_models, "XGBoost")
-    pred_cols <- c(pred_cols, all_predictions_combined$XGBoost)
-  }
   
   n_models <- length(available_models)
   if(n_models == 0) {

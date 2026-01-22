@@ -35,13 +35,5 @@ config <- list(
   ),
   bayesR = list(
     fold = c(0, 0.0001, 0.001, 0.01)
-  ),
-  xgb = list(
-    eta = 0.1,
-    max_depth = 4,
-    subsample = 1,
-    colsample_bytree = 0.6,
-    lambda = 1,
-    nrounds = 200
   )
 )

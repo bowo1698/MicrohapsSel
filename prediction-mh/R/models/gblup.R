@@ -126,7 +126,9 @@ run_gblup <- function(matrices, split, config) {
       sigma2_g = sigma2_g,
       sigma2_e = sigma2_e,
       h2 = h2,
-      lambda = lambda
+      lambda = lambda,
+      mean_diag_train = mean(diag(A_train)),
+      mean_diag_combined = mean(diag(matrices$A_combined))
     ),
     model = model_greml,
     n_cores = 1,

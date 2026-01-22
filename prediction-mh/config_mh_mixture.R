@@ -57,16 +57,6 @@ config <- list(
     nu = 4.5,  # degrees of freedom
     prior_df_residual = 10
   ),
-  
-  # XGBoost hyperparameters
-  xgboost = list(
-    max_depth = 3,
-    eta = 0.03,
-    lambda = 10,
-    colsample_bytree = 0.5,
-    subsample = 0.8,
-    nrounds = 500
-  ),
 
   save_mcmc_samples = FALSE
 )

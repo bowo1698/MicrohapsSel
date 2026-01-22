@@ -123,8 +123,23 @@ run_bayesR <- function(matrices, split, gblup_varcomp, config, fold = 0) {
 
     # Diagnostics
     sigma2_e_mcmc <- mcmc(res$sigma2_e_samples)
-    ess <- effectiveSize(sigma2_e_mcmc)
-    geweke <- geweke.diag(sigma2_e_mcmc)$z
+    sigma2_small_mcmc <- mcmc(res$sigma2_small_samples)
+    sigma2_medium_mcmc <- mcmc(res$sigma2_medium_samples)
+    sigma2_large_mcmc <- mcmc(res$sigma2_large_samples)
+
+    ess <- list(
+      sigma2_e = effectiveSize(sigma2_e_mcmc),
+      sigma2_small = effectiveSize(sigma2_small_mcmc),
+      sigma2_medium = effectiveSize(sigma2_medium_mcmc),
+      sigma2_large = effectiveSize(sigma2_large_mcmc)
+    )
+
+    geweke <- list(
+      sigma2_e = geweke.diag(sigma2_e_mcmc)$z,
+      sigma2_small = geweke.diag(sigma2_small_mcmc)$z,
+      sigma2_medium = geweke.diag(sigma2_medium_mcmc)$z,
+      sigma2_large = geweke.diag(sigma2_large_mcmc)$z
+    )
     
   } else {
     stop("config$bayes_algo must be 'mcmc' or 'em'")
@@ -135,10 +150,7 @@ run_bayesR <- function(matrices, split, gblup_varcomp, config, fold = 0) {
   GEBV_test <- W_test %*% beta_hat
   
   # Calculate heritability
-  n_markers <- ncol(W_train)
-  sigma2_g_bayesr <- n_markers * (pi_hat[2] * sigma2_small_hat + 
-                                pi_hat[3] * sigma2_medium_hat + 
-                                pi_hat[4] * sigma2_large_hat)
+  sigma2_g_bayesr <- var(GEBV_train)
   h2_bayesr <- sigma2_g_bayesr / (sigma2_g_bayesr + sigma2_e_hat)
 
   cat("Posterior Means:\n")
@@ -266,7 +278,9 @@ run_bayesR <- function(matrices, split, gblup_varcomp, config, fold = 0) {
     } else NULL,
     diagnostics = list(
       ess = ess,
-      geweke_z = geweke
+      geweke_z = geweke,
+      mean_ess = mean(unlist(ess)),
+      min_ess = min(unlist(ess))
     ),
     n_cores = 1,
     runtime = NA

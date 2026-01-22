@@ -5,8 +5,7 @@ calculate_regression_slope <- function(predicted, observed) {
   coef(fit)[2]  # Return slope (b)
 }
 
-aggregate_fold_results <- function(gblup_res, bayesR_res, bayesA_res,
-                                   xgb_res, fold_id) {
+aggregate_fold_results <- function(gblup_res, bayesR_res, bayesA_res, fold_id) {
   
   list(
     fold = fold_id,
@@ -15,20 +14,22 @@ aggregate_fold_results <- function(gblup_res, bayesR_res, bayesA_res,
     gblup_test_pheno = gblup_res$accuracy$test_pheno,
     gblup_test_tbv = gblup_res$accuracy$test_tbv,
     gblup_h2 = gblup_res$varcomp$h2,
+    gblup_mean_diag_train = gblup_res$varcomp$mean_diag_train,
+    gblup_mean_diag_combined = gblup_res$varcomp$mean_diag_combined,
     bayesR_train_pheno = bayesR_res$accuracy$train_pheno,
     bayesR_train_tbv = bayesR_res$accuracy$train_tbv,
     bayesR_test_pheno = bayesR_res$accuracy$test_pheno,
     bayesR_test_tbv = bayesR_res$accuracy$test_tbv,
     bayesR_h2 = bayesR_res$varcomp$h2,
+    bayesR_mean_ess = bayesR_res$diagnostics$mean_ess,
+    bayesR_min_ess = bayesR_res$diagnostics$min_ess,
+    bayesR_ess_sigma2_e = if(is.list(bayesR_res$diagnostics$ess)) bayesR_res$diagnostics$ess$sigma2_e else bayesR_res$diagnostics$ess,
+    bayesR_geweke_sigma2_e = if(is.list(bayesR_res$diagnostics$geweke_z)) bayesR_res$diagnostics$geweke_z$sigma2_e else bayesR_res$diagnostics$geweke_z,
     bayesA_train_pheno = bayesA_res$accuracy$train_pheno,
     bayesA_train_tbv = bayesA_res$accuracy$train_tbv,
     bayesA_test_pheno = bayesA_res$accuracy$test_pheno,
     bayesA_test_tbv = bayesA_res$accuracy$test_tbv,
     bayesA_h2 = bayesA_res$varcomp$h2,
-    xgb_train_pheno = xgb_res$accuracy$train_pheno,
-    xgb_train_tbv = xgb_res$accuracy$train_tbv,
-    xgb_test_pheno = xgb_res$accuracy$test_pheno,
-    xgb_test_tbv = xgb_res$accuracy$test_tbv,
     gblup_b_train_pheno = gblup_res$regression_slopes$train_pheno,
     gblup_b_train_tbv = gblup_res$regression_slopes$train_tbv,
     gblup_b_test_pheno = gblup_res$regression_slopes$test_pheno,
@@ -41,10 +42,10 @@ aggregate_fold_results <- function(gblup_res, bayesR_res, bayesA_res,
     bayesA_b_train_tbv = bayesA_res$regression_slopes$train_tbv,
     bayesA_b_test_pheno = bayesA_res$regression_slopes$test_pheno,
     bayesA_b_test_tbv = bayesA_res$regression_slopes$test_tbv,
-    xgb_b_train_pheno = xgb_res$regression_slopes$train_pheno,
-    xgb_b_train_tbv = xgb_res$regression_slopes$train_tbv,
-    xgb_b_test_pheno = xgb_res$regression_slopes$test_pheno,
-    xgb_b_test_tbv = xgb_res$regression_slopes$test_tbv,
+    bayesA_mean_ess = bayesA_res$diagnostics$mean_ess,
+    bayesA_min_ess = bayesA_res$diagnostics$min_ess,
+    bayesA_ess_sigma2_e = if(is.list(bayesA_res$diagnostics$ess)) bayesA_res$diagnostics$ess$sigma2_e else bayesA_res$diagnostics$ess,
+    bayesA_geweke_sigma2_e = if(is.list(bayesA_res$diagnostics$geweke_z)) bayesA_res$diagnostics$geweke_z$sigma2_e else bayesA_res$diagnostics$geweke_z,
     gblup_rmse_train_pheno = gblup_res$rmse$train_pheno,
     gblup_rmse_train_tbv = gblup_res$rmse$train_tbv,
     gblup_rmse_test_pheno = gblup_res$rmse$test_pheno,
@@ -57,10 +58,6 @@ aggregate_fold_results <- function(gblup_res, bayesR_res, bayesA_res,
     bayesA_rmse_train_tbv = bayesA_res$rmse$train_tbv,
     bayesA_rmse_test_pheno = bayesA_res$rmse$test_pheno,
     bayesA_rmse_test_tbv = bayesA_res$rmse$test_tbv,
-    xgb_rmse_train_pheno = xgb_res$rmse$train_pheno,
-    xgb_rmse_train_tbv = xgb_res$rmse$train_tbv,
-    xgb_rmse_test_pheno = xgb_res$rmse$test_pheno,
-    xgb_rmse_test_tbv = xgb_res$rmse$test_tbv,
     gblup_r2_train_pheno = gblup_res$r2$train_pheno,
     gblup_r2_train_tbv = gblup_res$r2$train_tbv,
     gblup_r2_test_pheno = gblup_res$r2$test_pheno,
@@ -73,22 +70,15 @@ aggregate_fold_results <- function(gblup_res, bayesR_res, bayesA_res,
     bayesA_r2_train_tbv = bayesA_res$r2$train_tbv,
     bayesA_r2_test_pheno = bayesA_res$r2$test_pheno,
     bayesA_r2_test_tbv = bayesA_res$r2$test_tbv,
-    xgb_r2_train_pheno = xgb_res$r2$train_pheno,
-    xgb_r2_train_tbv = xgb_res$r2$train_tbv,
-    xgb_r2_test_pheno = xgb_res$r2$test_pheno,
-    xgb_r2_test_tbv = xgb_res$r2$test_tbv,
     gblup_n_cores = gblup_res$n_cores,
     bayesR_n_cores = bayesR_res$n_cores,
     bayesA_n_cores = bayesA_res$n_cores,
-    xgb_n_cores = xgb_res$n_cores,
     gblup_core_hours = gblup_res$runtime * gblup_res$n_cores,
     bayesR_core_hours = bayesR_res$runtime * bayesR_res$n_cores,
     bayesA_core_hours = bayesA_res$runtime * bayesA_res$n_cores,
-    xgb_core_hours = xgb_res$runtime * xgb_res$n_cores,
     gblup_efficiency = (gblup_res$runtime * gblup_res$n_cores) / gblup_res$accuracy$test_tbv,
     bayesR_efficiency = (bayesR_res$runtime * bayesR_res$n_cores) / bayesR_res$accuracy$test_tbv,
-    bayesA_efficiency = (bayesA_res$runtime * bayesA_res$n_cores) / bayesA_res$accuracy$test_tbv,
-    xgb_efficiency = (xgb_res$runtime * xgb_res$n_cores) / xgb_res$accuracy$test_tbv
+    bayesA_efficiency = (bayesA_res$runtime * bayesA_res$n_cores) / bayesA_res$accuracy$test_tbv
   )
 }
 
@@ -108,6 +98,10 @@ summarize_cv_results <- function(results_list) {
       GBLUP_test_tbv_sd = sd(gblup_test_tbv),
       GBLUP_h2_mean = mean(gblup_h2),
       GBLUP_h2_sd = sd(gblup_h2),
+      GBLUP_mean_diag_train_mean = mean(gblup_mean_diag_train),
+      GBLUP_mean_diag_train_sd = sd(gblup_mean_diag_train),
+      GBLUP_mean_diag_combined_mean = mean(gblup_mean_diag_combined),
+      GBLUP_mean_diag_combined_sd = sd(gblup_mean_diag_combined),
       BayesR_train_pheno_mean = mean(bayesR_train_pheno),
       BayesR_train_pheno_sd = sd(bayesR_train_pheno),
       BayesR_train_tbv_mean = mean(bayesR_train_tbv),
@@ -118,6 +112,12 @@ summarize_cv_results <- function(results_list) {
       BayesR_test_tbv_sd = sd(bayesR_test_tbv),
       BayesR_h2_mean = mean(bayesR_h2),
       BayesR_h2_sd = sd(bayesR_h2),
+      BayesR_mean_ess_mean = mean(bayesR_mean_ess, na.rm = TRUE),
+      BayesR_mean_ess_sd = sd(bayesR_mean_ess, na.rm = TRUE),
+      BayesR_min_ess_mean = mean(bayesR_min_ess, na.rm = TRUE),
+      BayesR_min_ess_sd = sd(bayesR_min_ess, na.rm = TRUE),
+      BayesR_ess_sigma2_e_mean = mean(bayesR_ess_sigma2_e, na.rm = TRUE),
+      BayesR_geweke_sigma2_e_mean = mean(abs(bayesR_geweke_sigma2_e), na.rm = TRUE),
       BayesA_train_pheno_mean = mean(bayesA_train_pheno),
       BayesA_train_pheno_sd = sd(bayesA_train_pheno),
       BayesA_train_tbv_mean = mean(bayesA_train_tbv),
@@ -128,14 +128,12 @@ summarize_cv_results <- function(results_list) {
       BayesA_test_tbv_sd = sd(bayesA_test_tbv),
       BayesA_h2_mean = mean(bayesA_h2),
       BayesA_h2_sd = sd(bayesA_h2),
-      XGBoost_train_pheno_mean = mean(xgb_train_pheno),
-      XGBoost_train_pheno_sd = sd(xgb_train_pheno),
-      XGBoost_train_tbv_mean = mean(xgb_train_tbv),
-      XGBoost_train_tbv_sd = sd(xgb_train_tbv),
-      XGBoost_test_pheno_mean = mean(xgb_test_pheno),
-      XGBoost_test_pheno_sd = sd(xgb_test_pheno),
-      XGBoost_test_tbv_mean = mean(xgb_test_tbv),
-      XGBoost_test_tbv_sd = sd(xgb_test_tbv),
+      BayesA_mean_ess_mean = mean(bayesA_mean_ess, na.rm = TRUE),
+      BayesA_mean_ess_sd = sd(bayesA_mean_ess, na.rm = TRUE),
+      BayesA_min_ess_mean = mean(bayesA_min_ess, na.rm = TRUE),
+      BayesA_min_ess_sd = sd(bayesA_min_ess, na.rm = TRUE),
+      BayesA_ess_sigma2_e_mean = mean(bayesA_ess_sigma2_e, na.rm = TRUE),
+      BayesA_geweke_sigma2_e_mean = mean(abs(bayesA_geweke_sigma2_e), na.rm = TRUE),
       GBLUP_b_train_pheno_mean = mean(gblup_b_train_pheno),
       GBLUP_b_train_pheno_sd = sd(gblup_b_train_pheno),
       GBLUP_b_train_tbv_mean = mean(gblup_b_train_tbv),
@@ -160,14 +158,6 @@ summarize_cv_results <- function(results_list) {
       BayesA_b_test_pheno_sd = sd(bayesA_b_test_pheno),
       BayesA_b_test_tbv_mean = mean(bayesA_b_test_tbv),
       BayesA_b_test_tbv_sd = sd(bayesA_b_test_tbv),
-      XGBoost_b_train_pheno_mean = mean(xgb_b_train_pheno),
-      XGBoost_b_train_pheno_sd = sd(xgb_b_train_pheno),
-      XGBoost_b_train_tbv_mean = mean(xgb_b_train_tbv),
-      XGBoost_b_train_tbv_sd = sd(xgb_b_train_tbv),
-      XGBoost_b_test_pheno_mean = mean(xgb_b_test_pheno),
-      XGBoost_b_test_pheno_sd = sd(xgb_b_test_pheno),
-      XGBoost_b_test_tbv_mean = mean(xgb_b_test_tbv),
-      XGBoost_b_test_tbv_sd = sd(xgb_b_test_tbv),
       GBLUP_rmse_train_pheno_mean = mean(gblup_rmse_train_pheno),
       GBLUP_rmse_train_pheno_sd = sd(gblup_rmse_train_pheno),
       GBLUP_rmse_test_pheno_mean = mean(gblup_rmse_test_pheno),
@@ -192,14 +182,6 @@ summarize_cv_results <- function(results_list) {
       BayesA_rmse_train_tbv_sd = sd(bayesA_rmse_train_tbv),
       BayesA_rmse_test_tbv_mean = mean(bayesA_rmse_test_tbv),
       BayesA_rmse_test_tbv_sd = sd(bayesA_rmse_test_tbv),
-      XGBoost_rmse_train_pheno_mean = mean(xgb_rmse_train_pheno),
-      XGBoost_rmse_train_pheno_sd = sd(xgb_rmse_train_pheno),
-      XGBoost_rmse_test_pheno_mean = mean(xgb_rmse_test_pheno),
-      XGBoost_rmse_test_pheno_sd = sd(xgb_rmse_test_pheno),
-      XGBoost_rmse_train_tbv_mean = mean(xgb_rmse_train_tbv),
-      XGBoost_rmse_train_tbv_sd = sd(xgb_rmse_train_tbv),
-      XGBoost_rmse_test_tbv_mean = mean(xgb_rmse_test_tbv),
-      XGBoost_rmse_test_tbv_sd = sd(xgb_rmse_test_tbv),
       GBLUP_r2_train_pheno_mean = mean(gblup_r2_train_pheno),
       GBLUP_r2_train_pheno_sd = sd(gblup_r2_train_pheno),
       GBLUP_r2_test_pheno_mean = mean(gblup_r2_test_pheno),
@@ -224,30 +206,18 @@ summarize_cv_results <- function(results_list) {
       BayesA_r2_train_tbv_sd = sd(bayesA_r2_train_tbv),
       BayesA_r2_test_tbv_mean = mean(bayesA_r2_test_tbv),
       BayesA_r2_test_tbv_sd = sd(bayesA_r2_test_tbv),
-      XGBoost_r2_train_pheno_mean = mean(xgb_r2_train_pheno),
-      XGBoost_r2_train_pheno_sd = sd(xgb_r2_train_pheno),
-      XGBoost_r2_test_pheno_mean = mean(xgb_r2_test_pheno),
-      XGBoost_r2_test_pheno_sd = sd(xgb_r2_test_pheno),
-      XGBoost_r2_train_tbv_mean = mean(xgb_r2_train_tbv),
-      XGBoost_r2_train_tbv_sd = sd(xgb_r2_train_tbv),
-      XGBoost_r2_test_tbv_mean = mean(xgb_r2_test_tbv),
-      XGBoost_r2_test_tbv_sd = sd(xgb_r2_test_tbv),
       GBLUP_core_hours_mean = mean(gblup_core_hours),
       GBLUP_core_hours_sd = sd(gblup_core_hours),
       BayesR_core_hours_mean = mean(bayesR_core_hours),
       BayesR_core_hours_sd = sd(bayesR_core_hours),
       BayesA_core_hours_mean = mean(bayesA_core_hours),
       BayesA_core_hours_sd = sd(bayesA_core_hours),
-      XGBoost_core_hours_mean = mean(xgb_core_hours),
-      XGBoost_core_hours_sd = sd(xgb_core_hours),
       GBLUP_efficiency_mean = mean(gblup_efficiency),
       GBLUP_efficiency_sd = sd(gblup_efficiency),
       BayesR_efficiency_mean = mean(bayesR_efficiency),
       BayesR_efficiency_sd = sd(bayesR_efficiency),
       BayesA_efficiency_mean = mean(bayesA_efficiency),
-      BayesA_efficiency_sd = sd(bayesA_efficiency),
-      XGBoost_efficiency_mean = mean(xgb_efficiency),
-      XGBoost_efficiency_sd = sd(xgb_efficiency)
+      BayesA_efficiency_sd = sd(bayesA_efficiency)
     )
   
   list(
@@ -257,7 +227,7 @@ summarize_cv_results <- function(results_list) {
 }
 
 save_gebv_with_regression <- function(fold_id, gblup_res, bayesR_res, 
-                                      bayesA_res, xgb_res, split, output_dir) {
+                                      bayesA_res, split, output_dir) {
   
   fold_dir <- file.path(output_dir, paste0("fold_", fold_id))
   
@@ -268,11 +238,9 @@ save_gebv_with_regression <- function(fold_id, gblup_res, bayesR_res,
       GEBV_GBLUP = gblup_res$predictions$train,
       GEBV_BayesR = bayesR_res$predictions$train,
       GEBV_BayesA = bayesA_res$predictions$train,
-      GEBV_XGBoost = xgb_res$predictions$train,
       b_GBLUP_tbv = gblup_res$regression_slopes$train_tbv,
       b_BayesR_tbv = bayesR_res$regression_slopes$train_tbv,
-      b_BayesA_tbv = bayesA_res$regression_slopes$train_tbv,
-      b_XGBoost_tbv = xgb_res$regression_slopes$train_tbv
+      b_BayesA_tbv = bayesA_res$regression_slopes$train_tbv
     )
   
   # Test set
@@ -282,26 +250,23 @@ save_gebv_with_regression <- function(fold_id, gblup_res, bayesR_res,
       GEBV_GBLUP = gblup_res$predictions$test,
       GEBV_BayesR = bayesR_res$predictions$test,
       GEBV_BayesA = bayesA_res$predictions$test,
-      GEBV_XGBoost = xgb_res$predictions$test,
       b_GBLUP_tbv = gblup_res$regression_slopes$test_tbv,
       b_BayesR_tbv = bayesR_res$regression_slopes$test_tbv,
-      b_BayesA_tbv = bayesA_res$regression_slopes$test_tbv,
-      b_XGBoost_tbv = xgb_res$regression_slopes$test_tbv
+      b_BayesA_tbv = bayesA_res$regression_slopes$test_tbv
     )
   
   write.csv(train_gebv, file.path(fold_dir, "train_gebv.csv"), row.names = FALSE)
   write.csv(test_gebv, file.path(fold_dir, "test_gebv.csv"), row.names = FALSE)
 }
 
-save_fold_results <- function(fold_id, gblup_res, bayesR_res, bayesA_res,
-                              xgb_res, matrices, output_dir) {
+save_fold_results <- function(fold_id, gblup_res, bayesR_res, bayesA_res, matrices, output_dir) {
   
   fold_dir <- file.path(output_dir, paste0("fold_", fold_id))
   dir.create(fold_dir, recursive = TRUE, showWarnings = FALSE)
   
   # Save aggregated results
   fold_results <- aggregate_fold_results(
-    gblup_res, bayesR_res, bayesA_res, xgb_res, fold_id
+    gblup_res, bayesR_res, bayesA_res, fold_id
   )
   saveRDS(fold_results, file.path(fold_dir, "results.rds"))
   
@@ -345,23 +310,6 @@ save_fold_results <- function(fold_id, gblup_res, bayesR_res, bayesA_res,
       write.csv(
         significant_A,
         file.path(fold_dir, "bayesA_significant_markers.csv"),
-        row.names = FALSE
-      )
-    }
-  }
-  
-  # Save XGBoost importance
-  if(!is.null(xgb_res$importance)) {
-    write.csv(
-      xgb_res$importance,
-      file.path(fold_dir, "xgboost_feature_importance.csv"),
-      row.names = FALSE
-    )
-    
-    if(!is.null(xgb_res$high_importance) && nrow(xgb_res$high_importance) > 0) {
-      write.csv(
-        xgb_res$high_importance,
-        file.path(fold_dir, "xgboost_high_importance_markers.csv"),
         row.names = FALSE
       )
     }
@@ -451,9 +399,6 @@ print_cv_summary <- function(summary_stats) {
   cat("BayesA: ", sprintf("%.4f ± %.4f", 
                          summary_stats$BayesA_test_tbv_mean, 
                          summary_stats$BayesA_test_tbv_sd), "\n")
-  cat("XGBoost:", sprintf("%.4f ± %.4f", 
-                         summary_stats$XGBoost_test_tbv_mean, 
-                         summary_stats$XGBoost_test_tbv_sd), "\n")
   
   cat("\nMean h² ± SD:\n")
   cat("GBLUP:  ", sprintf("%.4f ± %.4f", 
@@ -476,9 +421,6 @@ print_cv_summary <- function(summary_stats) {
   cat("BayesA: ", sprintf("%.4f ± %.4f", 
                          summary_stats$BayesA_rmse_train_tbv_mean, 
                          summary_stats$BayesA_rmse_train_tbv_sd), "\n")
-  cat("XGBoost:", sprintf("%.4f ± %.4f", 
-                         summary_stats$XGBoost_rmse_train_tbv_mean, 
-                         summary_stats$XGBoost_rmse_train_tbv_sd), "\n")
   
   cat("\nTRAINING R² ± SD (TBV):\n")
   cat("GBLUP:  ", sprintf("%.4f ± %.4f", 
@@ -490,9 +432,6 @@ print_cv_summary <- function(summary_stats) {
   cat("BayesA: ", sprintf("%.4f ± %.4f", 
                          summary_stats$BayesA_r2_train_tbv_mean, 
                          summary_stats$BayesA_r2_train_tbv_sd), "\n")
-  cat("XGBoost:", sprintf("%.4f ± %.4f", 
-                         summary_stats$XGBoost_r2_train_tbv_mean, 
-                         summary_stats$XGBoost_r2_train_tbv_sd), "\n")
   
   cat("\nTRAINING Regression Slope (b) ± SD (TBV):\n")
   cat("GBLUP:  ", sprintf("%.4f ± %.4f", 
@@ -504,9 +443,6 @@ print_cv_summary <- function(summary_stats) {
   cat("BayesA: ", sprintf("%.4f ± %.4f", 
                         summary_stats$BayesA_b_train_tbv_mean, 
                         summary_stats$BayesA_b_train_tbv_sd), "\n")
-  cat("XGBoost:", sprintf("%.4f ± %.4f", 
-                        summary_stats$XGBoost_b_train_tbv_mean, 
-                        summary_stats$XGBoost_b_train_tbv_sd), "\n")
   
   cat("\nEfficiency (Core-Hours / Test Accuracy) ± SD:\n")
   cat("GBLUP:  ", sprintf("%.2f ± %.2f", 
@@ -520,9 +456,5 @@ print_cv_summary <- function(summary_stats) {
   cat("BayesA: ", sprintf("%.2f ± %.2f", 
                          summary_stats$BayesA_efficiency_mean, 
                          summary_stats$BayesA_efficiency_sd), 
-      " (Lower is better)\n")
-  cat("XGBoost:", sprintf("%.2f ± %.2f", 
-                         summary_stats$XGBoost_efficiency_mean, 
-                         summary_stats$XGBoost_efficiency_sd), 
       " (Lower is better)\n")
 }

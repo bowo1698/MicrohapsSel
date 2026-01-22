@@ -3,13 +3,12 @@
 plot_accuracy_comparison <- function(results_df, output_dir = NULL) {
   
   results_long <- results_df %>%
-    select(fold, gblup_test_tbv, bayesR_test_tbv, bayesA_test_tbv, xgb_test_tbv) %>%
+    select(fold, gblup_test_tbv, bayesR_test_tbv, bayesA_test_tbv) %>%
     pivot_longer(-fold, names_to = "Method", values_to = "Accuracy") %>%
     mutate(Method = recode(Method,
                           gblup_test_tbv = "GBLUP",
                           bayesR_test_tbv = "BayesR",
-                          bayesA_test_tbv = "BayesA",
-                          xgb_test_tbv = "XGBoost"))
+                          bayesA_test_tbv = "BayesA"))
   
   p <- ggplot(results_long, aes(x = Method, y = Accuracy, fill = Method)) +
     stat_summary(fun = mean, geom = "bar", alpha = 0.7) +
@@ -63,13 +62,12 @@ plot_heritability_comparison <- function(results_df, output_dir = NULL) {
 plot_fold_variability <- function(results_df, output_dir = NULL) {
   
   results_long <- results_df %>%
-    select(fold, gblup_test_tbv, bayesR_test_tbv, bayesA_test_tbv, xgb_test_tbv) %>%
+    select(fold, gblup_test_tbv, bayesR_test_tbv, bayesA_test_tbv) %>%
     pivot_longer(-fold, names_to = "Method", values_to = "Accuracy") %>%
     mutate(Method = recode(Method,
                           gblup_test_tbv = "GBLUP",
                           bayesR_test_tbv = "BayesR",
-                          bayesA_test_tbv = "BayesA",
-                          xgb_test_tbv = "XGBoost"))
+                          bayesA_test_tbv = "BayesA"))
   
   p <- ggplot(results_long, aes(x = factor(fold), y = Accuracy, 
                                  color = Method, group = Method)) +
@@ -126,16 +124,14 @@ plot_train_vs_test_accuracy <- function(results_df, output_dir = NULL) {
     select(fold, 
            gblup_train_tbv, gblup_test_tbv,
            bayesR_train_tbv, bayesR_test_tbv,
-           bayesA_train_tbv, bayesA_test_tbv,
-           xgb_train_tbv, xgb_test_tbv) %>%
+           bayesA_train_tbv, bayesA_test_tbv) %>%
     pivot_longer(-fold, names_to = "metric", values_to = "accuracy") %>%
     separate(metric, into = c("method", "set", "type"), sep = "_") %>%
     mutate(
       method = recode(method,
                      gblup = "GBLUP",
                      bayesR = "BayesR",
-                     bayesA = "BayesA",
-                     xgb = "XGBoost"),
+                     bayesA = "BayesA"),
       set = factor(set, levels = c("train", "test"))
     )
   

@@ -23,7 +23,7 @@ n_dams_per_sire <- 10
 n_offspring_per_family <- 20
 n_families <- n_sires * n_dams_per_sire  # 400
 n_offspring_per_gen <- n_families * n_offspring_per_family  # 8,000
-h2_target <- 0.4
+h2_target <- 0.3
 n_qtl_per_chr <- 100
 top_pct_selection <- 0.4
 organism <- "trout"

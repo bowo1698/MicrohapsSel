@@ -364,13 +364,10 @@ In the first term, $m h_i$ denotes microhaplotype $i$, $f_i$ is the frequency of
 The final genotype data will be:
 
 ```
-  individual_id    hap_1_1 hap_1_1_1 hap_1_2 hap_1_2_1 hap_1_3 hap_1_3_1 hap_1_4
-1 ind_1            2         1       1         2       3         3       1
-2 ind_1            1         3       2         2       3         2       1
-3 ind_1            3         1       2         2       2         3       2
-4 ind_1            3         1       2         2       2         1       2
-5 ind_1            1         2       2         1       3         3       1
-6 ind_1            2         1       1         2       3         1       1
+ID       hap_1_1  hap_1_1  hap_1_2  hap_1_2  hap_1_3  hap_1_3
+ind_1        2        1        1        2        3        3
+ind_2        1        3        2        2        3        2
+ind_3        3        1        2        2        2        3
 ```
 
 This genotype data consists of numerical microhaplotype alleles in diploid format, where each number represents a unique combination of SNP sequences in a specific genomic block. Each locus is presented in two side-by-side columns to show the pair of haplotypes inherited from each individual's parents. 

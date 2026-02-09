@@ -5,10 +5,7 @@ suppressPackageStartupMessages({
   library(data.table)
 })
 
-# ============================================================================
 # SETUP
-# ============================================================================
-
 output_dir <- "output/trout_gens"
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
@@ -28,10 +25,7 @@ n_qtl_per_chr <- 100
 top_pct_selection <- 0.4
 organism <- "trout"
 
-# ============================================================================
 # LOAD & PROCESS VCF (FOUNDERS)
-# ============================================================================
-
 cat("Reading VCF file...\n")
 vcf <- read.vcfR(vcf_file, verbose = FALSE)
 
@@ -161,9 +155,7 @@ cat(sprintf("  SNP map saved: %d SNPs\n", nrow(map_df)))
 
 cat(sprintf("Founders: %d individuals, %d SNPs\n", nInd(founders), ncol(founders_geno)))
 
-# ============================================================================
 # SAMPLE QTL POSITIONS (ONCE, BEFORE ITERATION LOOP)
-# ============================================================================
 total_qtl <- n_chr * n_qtl_per_chr
 
 set.seed(456)
@@ -180,10 +172,7 @@ for(chr_i in 1:n_chr) {
 
 cat(sprintf("QTL positions sampled: %d QTLs\n", total_qtl))
 
-# ============================================================================
 # HELPER FUNCTIONS
-# ============================================================================
-
 select_parents <- function(phenotypes, pop_object, n_sires, n_dams, top_pct = 0.4) {
   # Rank by TBV
   ranked <- phenotypes %>%
@@ -226,10 +215,7 @@ create_balanced_crosses <- function(sire_idx, dam_idx, dams_per_sire) {
   return(crossPlan)
 }
 
-# ============================================================================
-# OUTER LOOP: 5 ITERATIONS
-# ============================================================================
-
+# OUTER LOOP: n ITERATIONS
 for(iter in 1:n_iterations) {
   
   cat(sprintf("\n========================================\n"))
@@ -239,10 +225,7 @@ for(iter in 1:n_iterations) {
   # Set unique seed per iteration
   set.seed(1000 + iter * 100)
   
-  # ------------------------------
   # SAMPLE QTL EFFECTS (PER ITERATION)
-  # ------------------------------
-  
   # Normal QTL: all from N(0,1)
   beta_normal <- rnorm(total_qtl, mean = 0, sd = 1)
   beta_normal <- beta_normal / sd(beta_normal)
@@ -259,6 +242,16 @@ for(iter in 1:n_iterations) {
   )
   beta_mixture <- sample(beta_mixture)
   beta_mixture <- beta_mixture / sd(beta_mixture)
+
+  # CENTER FOUNDER TBV TO ZERO
+  founders_geno_qtl <- founders_geno[, qtl_idx]
+  X_mean <- colMeans(founders_geno_qtl)
+
+  adjustment_normal <- sum(X_mean * beta_normal)
+  beta_normal <- beta_normal - adjustment_normal / total_qtl
+
+  adjustment_mixture <- sum(X_mean * beta_mixture)
+  beta_mixture <- beta_mixture - adjustment_mixture / total_qtl
   
   # Save QTL effects
   qtl_info <- tibble(
@@ -279,10 +272,7 @@ for(iter in 1:n_iterations) {
   cat(sprintf("    - Mixture: sd(beta) = %.3f (80%%/15%%/5%% = %d/%d/%d)\n", 
               sd(beta_mixture), n_small, n_medium, n_large))
   
-  # ------------------------------
   # INITIALIZE ACCUMULATORS
-  # ------------------------------
-  
   genotypes_list <- list(founders_geno)
   all_phenotypes_normal <- tibble()
   all_phenotypes_mixture <- tibble()
@@ -291,10 +281,7 @@ for(iter in 1:n_iterations) {
   pop_objects <- list()
   pop_objects[["founders"]] <- founders
   
-  # ------------------------------
   # INNER LOOP: 3 GENERATIONS
-  # ------------------------------
-  
   for(gen in 1:n_generations) {
     
     cat(sprintf("\n--- Generation %d ---\n", gen))
@@ -648,9 +635,33 @@ cat(sprintf("Total iterations: %d\n", n_iterations))
 cat(sprintf("Total generations per iteration: %d\n", n_generations))
 cat("========================================\n")
 
-# ============================================================================
+# Combine all validation summaries across iterations
+all_validations <- map_df(1:n_iterations, function(iter) {
+  read_csv(
+    file.path(output_dir, sprintf("iteration_%d/%s_validation_summary.csv", iter, organism)),
+    show_col_types = FALSE
+  )
+})
+
+# Aggregate: mean ± sd across iterations
+table1 <- all_validations %>%
+  group_by(scenario, generation) %>%
+  summarise(
+    mean_tbv = sprintf("%.2f ± %.2f", mean(mean_tbv), sd(mean_tbv)),
+    sd_tbv = sprintf("%.2f ± %.2f", mean(sd_tbv), sd(sd_tbv)),
+    var_tbv = sprintf("%.1f ± %.1f", mean(var_tbv), sd(var_tbv)),
+    h2_realized = sprintf("%.3f ± %.3f", mean(h2_realized), sd(h2_realized)),
+    .groups = "drop"
+  ) %>%
+  arrange(scenario, generation)
+
+# Save
+write_csv(table1, file.path(output_dir, sprintf("%s_table1_summary.csv", organism)))
+
+cat("\n--- TABLE 1: Summary Statistics ---\n")
+print(table1, n = Inf)
+
 # PRINT EXAMPLE DATA
-# ============================================================================
 
 cat("\n========================================\n")
 cat("EXAMPLE DATA PREVIEW\n")

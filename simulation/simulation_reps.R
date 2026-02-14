@@ -130,17 +130,21 @@ founders_ped <- tibble(
 cat("Creating SNP map file...\n")
 
 # Build chromosome and position vectors
-snp_chr <- integer(ncol(founders_geno))
-snp_pos <- numeric(ncol(founders_geno))
+n_actual_snps <- ncol(founders_geno)
+snp_chr <- integer(n_actual_snps)
+snp_pos <- numeric(n_actual_snps)
 snp_idx <- 1
 
 n_chr <- length(genMap)
 
-for(chr_i in 1:n_chr) {
-  n_snp_chr <- ncol(haplotypes[[chr_i]])
-  snp_chr[snp_idx:(snp_idx + n_snp_chr - 1)] <- chr_list[chr_i]
-  snp_pos[snp_idx:(snp_idx + n_snp_chr - 1)] <- genMap[[chr_i]] * 1e8  # Morgan to bp
-  snp_idx <- snp_idx + n_snp_chr
+for(chr_i in 1:SP_base$nChr) {
+  loci_in_chr <- SP_base$genMap[[chr_i]]
+  n_loci <- length(loci_in_chr)
+  
+  snp_chr[snp_idx:(snp_idx + n_loci - 1)] <- chr_i
+  snp_pos[snp_idx:(snp_idx + n_loci - 1)] <- loci_in_chr * 1e8
+  
+  snp_idx <- snp_idx + n_loci
 }
 
 # Create map dataframe
@@ -156,15 +160,17 @@ cat(sprintf("  SNP map saved: %d SNPs\n", nrow(map_df)))
 cat(sprintf("Founders: %d individuals, %d SNPs\n", nInd(founders), ncol(founders_geno)))
 
 # SAMPLE QTL POSITIONS (ONCE, BEFORE ITERATION LOOP)
-total_qtl <- n_chr * n_qtl_per_chr
+total_qtl <- SP_base$nChr * n_qtl_per_chr
 
 set.seed(456)
 qtl_idx <- integer(total_qtl)
 idx <- 1
-chr_cumsum <- c(0, cumsum(sapply(haplotypes, ncol)))
 
-for(chr_i in 1:n_chr) {
-  n_seg_chr <- ncol(haplotypes[[chr_i]])
+# Cumsum dari SP_base (source of truth)
+chr_cumsum <- c(0, cumsum(sapply(SP_base$genMap, length)))
+
+for(chr_i in 1:SP_base$nChr) {
+  n_seg_chr <- length(SP_base$genMap[[chr_i]])
   qtl_chr <- sort(sample(1:n_seg_chr, n_qtl_per_chr, replace = FALSE))
   qtl_idx[idx:(idx + n_qtl_per_chr - 1)] <- chr_cumsum[chr_i] + qtl_chr
   idx <- idx + n_qtl_per_chr

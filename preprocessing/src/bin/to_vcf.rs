@@ -147,10 +147,13 @@ fn process_chromosome(
     let mut count = 0;
     for (snp_idx, snp_id) in snp_cols.iter().enumerate() {
         if let Some(info) = map.get(snp_id) {
+            // VCF spec requires position >= 1; auto-correct position=0 to position=1
+            let adjusted_pos = if info.pos == "0" { "1" } else { &info.pos };
+            
             write!(file, "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
-                   info.chr, info.pos, info.id,
-                   args.ref_allele, args.alt, args.qual,
-                   args.filter, args.info, args.format_field)?;
+                info.chr, adjusted_pos, info.id,
+                args.ref_allele, args.alt, args.qual,
+                args.filter, args.info, args.format_field)?;
             
             for ind_gts in &genotypes {
                 write!(file, "\t{}", encode_gt(&ind_gts[snp_idx]))?;
@@ -274,10 +277,13 @@ fn main() -> Result<()> {
         
         for (snp_idx, snp_id) in snp_cols.iter().enumerate() {
             if let Some(info) = map.get(snp_id) {
+                // VCF spec requires position >= 1; auto-correct position=0 to position=1
+                let adjusted_pos = if info.pos == "0" { "1" } else { &info.pos };
+                
                 write!(file, "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
-                       info.chr, info.pos, info.id,
-                       args.ref_allele, args.alt, args.qual,
-                       args.filter, args.info, args.format_field)?;
+                    info.chr, adjusted_pos, info.id,
+                    args.ref_allele, args.alt, args.qual,
+                    args.filter, args.info, args.format_field)?;
                 
                 for ind_gts in &genotypes {
                     write!(file, "\t{}", encode_gt(&ind_gts[snp_idx]))?;

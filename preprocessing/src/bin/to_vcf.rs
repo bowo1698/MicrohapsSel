@@ -69,7 +69,7 @@ fn read_map(path: &PathBuf) -> Result<HashMap<String, SnpInfo>> {
         .delimiter(b'\t')
         .from_path(path)?;
     
-    for result in rdr.records().skip(1) {
+    for result in rdr.records() {
         let record = result?;
         if record.len() >= 3 {
             let id = record[0].to_string();
@@ -120,7 +120,7 @@ fn process_chromosome(
         .filter(|(_, h)| !meta_cols.contains(&h))
         .filter(|(_, h)| map.get(*h).map_or(false, |s| s.chr == chr))
         .collect();
-    
+
     if snp_indices.is_empty() {
         return Ok(0);
     }

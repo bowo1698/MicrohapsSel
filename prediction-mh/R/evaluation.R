@@ -341,21 +341,19 @@ save_fold_results <- function(fold_id, gblup_res, bayesR_res, bayesA_res, matric
     geweke_z = NA_real_
   ))
 
-  # BayesR
   diagnostics_summary <- rbind(diagnostics_summary, data.frame(
     model = "BayesR",
     h2 = bayesR_res$varcomp$h2,
-    ess = bayesR_res$diagnostics$ess,
-    geweke_z = bayesR_res$diagnostics$geweke_z
-  ))
+    ess = if(is.list(bayesR_res$diagnostics$ess)) bayesR_res$diagnostics$ess$sigma2_e else bayesR_res$diagnostics$mean_ess,
+    geweke_z = if(is.list(bayesR_res$diagnostics$geweke_z)) bayesR_res$diagnostics$geweke_z$sigma2_e else NA_real_
+ ))
 
-  # BayesA
   diagnostics_summary <- rbind(diagnostics_summary, data.frame(
     model = "BayesA",
     h2 = bayesA_res$varcomp$h2,
-    ess = bayesA_res$diagnostics$ess,
-    geweke_z = bayesA_res$diagnostics$geweke_z
-  ))
+    ess = if(is.list(bayesA_res$diagnostics$ess)) bayesA_res$diagnostics$ess$sigma2_e else bayesA_res$diagnostics$mean_ess,
+    geweke_z = if(is.list(bayesA_res$diagnostics$geweke_z)) bayesA_res$diagnostics$geweke_z$sigma2_e else NA_real_
+ ))
 
   write.csv(
     diagnostics_summary,

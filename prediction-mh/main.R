@@ -189,14 +189,11 @@ all_results <- foreach(
       cat("BayesR Test Accuracy (Phenotype):", round(bayesR_res$accuracy$test_pheno, 4), "\n")
       cat("BayesR Test Accuracy (TBV):", round(bayesR_res$accuracy$test_tbv, 4), "\n")
       cat("h² =", round(bayesR_res$varcomp$h2, 4), "\n")
-      if (config$bayes_algo == "mcmc") {
-        cat(
-          "Mean ESS:", round(bayesR_res$diagnostics$mean_ess, 1),
-          "| Min ESS:", round(bayesR_res$diagnostics$min_ess, 1), "\n\n"
-        )
-      } else {
-        cat("EM algorithm - no diagnostics\n\n")
-      }
+      cat(
+        "Mean ESS:", round(bayesR_res$diagnostics$mean_ess, 1),
+        "| Min ESS:", round(bayesR_res$diagnostics$min_ess, 1), "\n\n"
+      )
+      cat("Runtime:", sprintf("%.1f hours", bayesR_time), "\n\n")
 
       # Run BayesA
       cat("Running BayesA...\n")
@@ -209,14 +206,10 @@ all_results <- foreach(
       cat("BayesA Test Accuracy (Phenotype):", round(bayesA_res$accuracy$test_pheno, 4), "\n")
       cat("BayesA Test Accuracy (TBV):", round(bayesA_res$accuracy$test_tbv, 4), "\n")
       cat("h² =", round(bayesA_res$varcomp$h2, 4), "\n")
-      if (config$bayes_algo == "mcmc") {
-        cat(
-          "Mean ESS:", round(bayesA_res$diagnostics$mean_ess, 1),
-          "| Min ESS:", round(bayesA_res$diagnostics$min_ess, 1), "\n\n"
-        )
-      } else {
-        cat("EM algorithm - no diagnostics\n\n")
-      }
+      cat(
+        "Mean ESS:", round(bayesA_res$diagnostics$mean_ess, 1),
+        "| Min ESS:", round(bayesA_res$diagnostics$min_ess, 1), "\n\n"
+      )
       cat("Runtime:", sprintf("%.1f hours", bayesA_time), "\n\n")
 
       # Save fold results

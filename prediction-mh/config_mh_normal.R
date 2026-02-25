@@ -6,9 +6,9 @@ gen <- as.integer(Sys.getenv("GEN", "1"))
 config <- list(
   # Paths
   base_dir = "/scratch/user/aguswibowo/Research/iter_seq/model_run",
-  data_dir = file.path("/scratch/user/aguswibowo/Research/simulation/output/trout", ##
+  data_dir = file.path("/QRISdata/Q8514/research_data/trout2", ##
                      paste0("iteration_", iter)),
-  output_dir = file.path("/scratch/user/aguswibowo/Research/iter_seq/output/trout_MH_normal", 
+  output_dir = file.path("/scratch/user/aguswibowo/Research/iter_seq/output/trout_mh_normal2", 
                      paste0("iteration_", iter, "_gen", gen)),
   
   # Data settings
@@ -30,25 +30,19 @@ config <- list(
   stratify_by_sire = TRUE,
   min_offspring_per_sire = 5,
   
-  # Algorithm selection
-  bayes_algo = "mcmc",  # "mcmc" or "em"
-  
   # MCMC settings
-  n_iter = 40000,      # MCMC iterations or EM max_iter
+  n_iter = 40000,      # MCMC iterations
   n_burn = 20000,      # for MCMC
   n_thin = 10,         # for MCMC
   seed = 123,
-  em_tol = 1e-6,       # for EM
   
   # BayesR hyperparameters
   bayesR = list(
-    pi = c(0.5, 0.487, 0.01, 0.003),  # Zero, small, medium, large
-    variance_scaling = c(0, 0.0001, 0.001, 0.01), # Relative to sigma2_ah
+    pi = c(0.5, 0.487, 0.01, 0.003),
+    var_class = c(0, 0.0001, 0.001, 0.01),
     prior_df = list(
       residual = 10,
-      small = 10,
-      medium = 5,
-      large = 5
+      genetic = 4
     )
   ),
   
@@ -57,6 +51,6 @@ config <- list(
     nu = 4.5,  # degrees of freedom
     prior_df_residual = 10
   ),
-
+  
   save_mcmc_samples = FALSE
 )

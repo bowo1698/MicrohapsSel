@@ -47,7 +47,7 @@ struct Args {
     #[arg(long = "min-ld")]
     min_ld: Option<f64>,
 
-    #[arg(long = "noheader")]
+    #[arg(long = "noheader", default_value_t = true)]
     noheader: bool,
 
     #[arg(short = 'o', long = "output", default_value = "hap_info_microhap")]

@@ -29,7 +29,7 @@ struct Args {
     #[arg(long = "min-snps", default_value_t = 2)]
     min_snps: usize,
 
-    #[arg(long = "max-snps", default_value_t = 4)]
+    #[arg(long = "max-snps", default_value_t = usize::MAX)]
     max_snps: usize,
 
     #[arg(long = "d-prime-threshold", default_value_t = 0.45)]
@@ -43,6 +43,18 @@ struct Args {
 
     #[arg(long = "no-dedup")]
     no_dedup: bool,
+
+    #[arg(long = "ld-prune")]
+    ld_prune: bool,
+
+    #[arg(long = "ld-prune-r2", default_value_t = 0.8)]
+    ld_prune_r2: f64,
+
+    #[arg(long = "ld-prune-window-bp", default_value_t = 500_000)]
+    ld_prune_window_bp: i64,
+
+    #[arg(long = "no-rare-priority")]
+    no_rare_priority: bool,
 
     #[arg(long = "min-ld")]
     min_ld: Option<f64>,
@@ -102,6 +114,9 @@ fn main() -> Result<()> {
             }
             println!("Criterion-B AFT:   {}", args.aft);
             println!("Criterion-B MD:    {}", args.md);
+            if args.ld_prune {
+                println!("LD pruning:        r²>{}, window={}bp", args.ld_prune_r2, args.ld_prune_window_bp);
+            }
         }
         MethodArg::SnpCountSimple => {
             println!("Method:            snp_count_simple");
@@ -157,6 +172,22 @@ fn main() -> Result<()> {
         if args.verbose {
             println!("\nSkipping deduplication (--no-dedup flag set)");
         }
+        all_blocks
+    };
+
+    let all_blocks = if args.ld_prune {
+        if args.verbose {
+            println!("\nLD pruning blocks (r²>{}, window={}bp, rare_priority={})...",
+                args.ld_prune_r2, args.ld_prune_window_bp, !args.no_rare_priority);
+        }
+        let prune_config = LdPruneConfig {
+            r2_threshold: args.ld_prune_r2,
+            window_bp: args.ld_prune_window_bp,
+            prioritize_rare: !args.no_rare_priority,
+            rare_freq_threshold: 0.05,
+        };
+        ld_prune_blocks(all_blocks, &hap_files, &prune_config, args.noheader, args.verbose)
+    } else {
         all_blocks
     };
 

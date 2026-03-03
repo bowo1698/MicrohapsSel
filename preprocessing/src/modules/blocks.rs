@@ -88,6 +88,7 @@ pub fn define_microhaplotype_blocks(
                         original_block_size: None,
                         physical_span: None,
                         split_type: None,
+                        rare_allele_count: None,
                     });
                 }
 
@@ -106,6 +107,7 @@ pub fn define_microhaplotype_blocks(
                         original_block_size: None,
                         physical_span: None,
                         split_type: None,
+                        rare_allele_count: None,
                     });
                 }
             }
@@ -170,6 +172,7 @@ pub fn define_microhaplotype_blocks(
                                 original_block_size: Some(selected.original_block_size),
                                 physical_span: None,
                                 split_type: None,
+                                rare_allele_count: None,
                             });
                             n_output += 1;
                         }
@@ -180,6 +183,7 @@ pub fn define_microhaplotype_blocks(
                                 &chr_snps,
                                 config.window_bp,
                                 config.min_snps,
+                                config.max_snps,
                                 config.aft,
                                 config.md,
                             );
@@ -199,6 +203,7 @@ pub fn define_microhaplotype_blocks(
                                     original_block_size: None,
                                     physical_span: Some(micro.physical_span),
                                     split_type: Some(micro.split_type),
+                                    rare_allele_count: None,
                                 });
                                 n_output += 1;
                             }
@@ -308,4 +313,102 @@ pub fn deduplicate_blocks(
     }
 
     all_blocks
+}
+
+pub fn ld_prune_blocks(
+    all_blocks: BTreeMap<i32, Vec<Block>>,
+    hap_files: &[std::path::PathBuf],
+    config: &LdPruneConfig,
+    noheader: bool,
+    verbose: bool,
+) -> BTreeMap<i32, Vec<Block>> {
+    let mut pruned_all = BTreeMap::new();
+
+    for (chr_num, blocks) in &all_blocks {
+        if blocks.is_empty() {
+            pruned_all.insert(*chr_num, vec![]);
+            continue;
+        }
+
+        // Load haplotype matrix for this chromosome
+        let hap_file = hap_files.iter().find(|f| get_chromosome_number(f) == *chr_num);
+        let hap_matrix = match hap_file {
+            Some(f) => match read_haplotype_file(f, noheader, false) {
+                Ok(m) => m,
+                Err(_) => {
+                    pruned_all.insert(*chr_num, blocks.clone());
+                    continue;
+                }
+            },
+            None => {
+                pruned_all.insert(*chr_num, blocks.clone());
+                continue;
+            }
+        };
+
+        // Compute dosage vectors and rare allele counts for all blocks
+        let dosages: Vec<Vec<f64>> = blocks.iter()
+            .map(|b| {
+                let indices: Vec<usize> = (b.start_idx..=b.end_idx).collect();
+                mh_to_dosage(&hap_matrix, &indices)
+            })
+            .collect();
+
+        let rare_counts: Vec<usize> = blocks.iter()
+            .map(|b| {
+                let indices: Vec<usize> = (b.start_idx..=b.end_idx).collect();
+                count_rare_alleles(&hap_matrix, &indices, config.rare_freq_threshold)
+            })
+            .collect();
+
+        // Greedy pruning: sort by rare_count desc, then PIC/n_snps desc
+        let mut priority: Vec<usize> = (0..blocks.len()).collect();
+        priority.sort_by(|&a, &b| {
+            rare_counts[b].cmp(&rare_counts[a])
+                .then(blocks[b].n_snps.cmp(&blocks[a].n_snps))
+        });
+
+        let mut kept = vec![false; blocks.len()];
+        let mut pruned_count = 0;
+
+        for &i in &priority {
+            if kept[i] { continue; }
+
+            // Check r² with already-kept blocks within window
+            let mut redundant = false;
+            for j in 0..blocks.len() {
+                if !kept[j] { continue; }
+
+                // Only compare within genomic window
+                let dist = (blocks[i].start_pos - blocks[j].start_pos).abs();
+                if dist > config.window_bp { continue; }
+
+                let r2 = compute_r2(&dosages[i], &dosages[j]);
+                if r2 > config.r2_threshold {
+                    redundant = true;
+                    break;
+                }
+            }
+
+            if !redundant {
+                kept[i] = true;
+            } else {
+                pruned_count += 1;
+            }
+        }
+
+        let pruned_blocks: Vec<Block> = blocks.iter().enumerate()
+            .filter(|(i, _)| kept[*i])
+            .map(|(_, b)| b.clone())
+            .collect();
+
+        if verbose {
+            println!("  Chr {}: {} → {} blocks ({} pruned, r²>{:.2})",
+                chr_num, blocks.len(), pruned_blocks.len(), pruned_count, config.r2_threshold);
+        }
+
+        pruned_all.insert(*chr_num, pruned_blocks);
+    }
+
+    pruned_all
 }

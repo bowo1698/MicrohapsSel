@@ -22,6 +22,7 @@ pub struct Block {
     pub original_block_size: Option<usize>,
     pub physical_span: Option<i64>,
     pub split_type: Option<String>,
+    pub rare_allele_count: Option<usize>,
 }
 
 #[derive(Debug, Clone)]
@@ -95,6 +96,26 @@ impl Default for BlockDefinitionConfig {
             min_ld: None,
             noheader: false,
             verbose: false,
+        }
+    }
+}
+
+/// COnfigure LD Pruning
+#[derive(Debug, Clone)]
+pub struct LdPruneConfig {
+    pub r2_threshold: f64,
+    pub window_bp: i64,
+    pub prioritize_rare: bool,
+    pub rare_freq_threshold: f64,
+}
+
+impl Default for LdPruneConfig {
+    fn default() -> Self {
+        Self {
+            r2_threshold: 0.8,
+            window_bp: 500_000,
+            prioritize_rare: true,
+            rare_freq_threshold: 0.05,
         }
     }
 }

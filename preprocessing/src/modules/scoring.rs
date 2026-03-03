@@ -125,6 +125,7 @@ pub fn split_ld_block_by_physical_window(
     chr_snps: &[SnpInfo],
     window_bp: i32,
     min_snps: usize,
+    max_snps: usize,
     aft: f64,
     md: f64,
 ) -> Vec<Microhaplotype> {
@@ -135,13 +136,13 @@ pub fn split_ld_block_by_physical_window(
     let block_span = end_pos - start_pos;
 
     if block_span <= window_bp as i64 {
-        if snp_indices.len() >= min_snps {
-            let block_haps = hap_matrix.select(Axis(1), snp_indices);
+        let effective_indices: Vec<usize> = snp_indices.iter().copied().take(max_snps).collect();
+        if effective_indices.len() >= min_snps {
+            let block_haps = hap_matrix.select(Axis(1), &effective_indices);
             let score = criterion_b_score(&block_haps, aft, md);
-
             return vec![Microhaplotype {
-                snp_indices: snp_indices.clone(),
-                n_snps: snp_indices.len(),
+                snp_indices: effective_indices.clone(),
+                n_snps: effective_indices.len(),
                 criterion_b_score: score,
                 physical_span: block_span,
                 split_type: "single".to_string(),
@@ -167,6 +168,7 @@ pub fn split_ld_block_by_physical_window(
             }
         }
 
+        window_snp_indices.truncate(max_snps); 
         if window_snp_indices.len() >= min_snps {
             let block_haps = hap_matrix.select(Axis(1), &window_snp_indices);
             let score = criterion_b_score(&block_haps, aft, md);
@@ -290,4 +292,78 @@ pub fn calculate_allele_metrics(hap_matrix: &Array2<f64>, block_start_idx: usize
         effective_alleles: ne,
         rare_alleles_prop: rare_prop,
     })
+}
+
+/// Convert MH block to dosage vector (count of minor allele per individual)
+pub fn mh_to_dosage(hap_matrix: &Array2<f64>, snp_indices: &[usize]) -> Vec<f64> {
+    let block_haps = hap_matrix.select(Axis(1), snp_indices);
+    let n_haps = block_haps.nrows();
+    let n_ind = n_haps / 2;
+
+    // Get unique haplotypes and find minor allele (lowest freq above 0)
+    let mut hap_counts: HashMap<Vec<i32>, usize> = HashMap::new();
+    for row in block_haps.rows() {
+        if row.iter().any(|v| v.is_nan()) { continue; }
+        let hap: Vec<i32> = row.iter().map(|v| *v as i32).collect();
+        *hap_counts.entry(hap).or_insert(0) += 1;
+    }
+
+    if hap_counts.is_empty() {
+        return vec![0.0; n_ind];
+    }
+
+    let total = hap_counts.values().sum::<usize>() as f64;
+    // Minor allele = lowest frequency haplotype (but > rare threshold)
+    let minor_hap = hap_counts.iter()
+        .filter(|(_, &c)| c as f64 / total > 1.0 / total)
+        .min_by(|a, b| {
+            let fa = (*a.1 as f64 / total - 0.5).abs();
+            let fb = (*b.1 as f64 / total - 0.5).abs();
+            fa.partial_cmp(&fb).unwrap()
+        })
+        .map(|(h, _)| h.clone())
+        .unwrap_or_default();
+
+    // Dosage per individual = number of copies of minor haplotype (0, 1, or 2)
+    let mut dosage = vec![0.0f64; n_ind];
+    for i in 0..n_ind {
+        let h1: Vec<i32> = block_haps.row(i * 2).iter().map(|v| *v as i32).collect();
+        let h2: Vec<i32> = block_haps.row(i * 2 + 1).iter().map(|v| *v as i32).collect();
+        dosage[i] = (if h1 == minor_hap { 1.0 } else { 0.0 })
+                  + (if h2 == minor_hap { 1.0 } else { 0.0 });
+    }
+    dosage
+}
+
+/// Compute r² between two dosage vectors
+pub fn compute_r2(x: &[f64], y: &[f64]) -> f64 {
+    let n = x.len() as f64;
+    if n == 0.0 { return 0.0; }
+
+    let mean_x = x.iter().sum::<f64>() / n;
+    let mean_y = y.iter().sum::<f64>() / n;
+
+    let cov: f64 = x.iter().zip(y.iter())
+        .map(|(xi, yi)| (xi - mean_x) * (yi - mean_y))
+        .sum::<f64>() / n;
+
+    let var_x: f64 = x.iter().map(|xi| (xi - mean_x).powi(2)).sum::<f64>() / n;
+    let var_y: f64 = y.iter().map(|yi| (yi - mean_y).powi(2)).sum::<f64>() / n;
+
+    if var_x == 0.0 || var_y == 0.0 { return 0.0; }
+
+    (cov / (var_x.sqrt() * var_y.sqrt())).powi(2)
+}
+
+/// Count rare alleles in a MH block
+pub fn count_rare_alleles(hap_matrix: &Array2<f64>, snp_indices: &[usize], rare_threshold: f64) -> usize {
+    let block_haps = hap_matrix.select(Axis(1), snp_indices);
+    let mut hap_counts: HashMap<Vec<i32>, usize> = HashMap::new();
+    for row in block_haps.rows() {
+        if row.iter().any(|v| v.is_nan()) { continue; }
+        let hap: Vec<i32> = row.iter().map(|v| *v as i32).collect();
+        *hap_counts.entry(hap).or_insert(0) += 1;
+    }
+    let total = hap_counts.values().sum::<usize>() as f64;
+    hap_counts.values().filter(|&&c| c as f64 / total < rare_threshold).count()
 }

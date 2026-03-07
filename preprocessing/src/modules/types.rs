@@ -23,6 +23,7 @@ pub struct Block {
     pub physical_span: Option<i64>,
     pub split_type: Option<String>,
     pub rare_allele_count: Option<usize>,
+    pub pic: Option<f64>,
 }
 
 #[derive(Debug, Clone)]

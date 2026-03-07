@@ -224,9 +224,10 @@ pub fn write_csv_outputs(
 
     let coords_file = format!("{}/microhaplotype_coordinates.csv", stats_dir);
     let mut f = File::create(&coords_file)?;
-    writeln!(f, "block_id,chr,start_pos,end_pos,n_snps,physical_span_bp")?;
-    for row in coords_data {
-        writeln!(f, "{}", row.join(","))?;
+    writeln!(f, "block_id,chr,start_pos,end_pos,n_snps,physical_span_bp,pic")?;
+    for (row, block) in coords_data.iter().zip(all_blocks.values().flatten()) {
+        let pic_str = block.pic.map_or("NA".to_string(), |p| format!("{:.6}", p));
+        writeln!(f, "{},{}", row.join(","), pic_str)?;
     }
 
     if verbose {

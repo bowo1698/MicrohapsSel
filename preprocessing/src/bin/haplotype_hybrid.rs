@@ -56,6 +56,12 @@ struct Args {
     #[arg(long = "no-rare-priority")]
     no_rare_priority: bool,
 
+    #[arg(long = "min-pic")]
+    min_pic: Option<f64>,
+
+    #[arg(long = "top-k")]
+    top_k: Option<usize>,
+
     #[arg(long = "min-ld")]
     min_ld: Option<f64>,
 
@@ -129,6 +135,10 @@ fn main() -> Result<()> {
     }
 
     println!("Output directory:  {}", args.output);
+    if args.min_pic.is_some() || args.top_k.is_some() {
+        if let Some(p) = args.min_pic { println!("Min PIC filter:    {}", p); }
+        if let Some(k) = args.top_k   { println!("Top-K blocks:      {}", k); }
+    }
     println!("{}\n", "=".repeat(70));
 
     // Convert CLI args to config
@@ -187,6 +197,23 @@ fn main() -> Result<()> {
             rare_freq_threshold: 0.05,
         };
         ld_prune_blocks(all_blocks, &hap_files, &prune_config, args.noheader, args.verbose)
+    } else {
+        all_blocks
+    };
+
+    // Ranking 
+    let all_blocks = if args.min_pic.is_some() || args.top_k.is_some() {
+        if args.verbose {
+            println!("\nRanking/filtering blocks by PIC...");
+        }
+        rank_and_filter_blocks(
+            all_blocks,
+            &hap_files,
+            args.min_pic,
+            args.top_k,
+            args.noheader,
+            args.verbose,
+        )
     } else {
         all_blocks
     };

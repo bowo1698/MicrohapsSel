@@ -1,8 +1,10 @@
 // src/modules/scoring.rs
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, BTreeMap};
+use std::path::PathBuf;
 use ndarray::{Array2, Axis};
 
-use super::types::{SnpInfo, Haploblock, SelectedHaplotype, Microhaplotype, AlleleMetrics};
+use super::types::{SnpInfo, Haploblock, SelectedHaplotype, Microhaplotype, AlleleMetrics, Block};
+use super::io::{read_haplotype_file, get_chromosome_number};
 
 pub fn criterion_b_score(block_haps: &Array2<f64>, aft: f64, md: f64) -> f64 {
     let n_snps = block_haps.ncols();
@@ -366,4 +368,74 @@ pub fn count_rare_alleles(hap_matrix: &Array2<f64>, snp_indices: &[usize], rare_
     }
     let total = hap_counts.values().sum::<usize>() as f64;
     hap_counts.values().filter(|&&c| c as f64 / total < rare_threshold).count()
+}
+
+/// Compute PIC for a single block from haplotype matrix
+pub fn compute_block_pic(hap_matrix: &Array2<f64>, start_idx: usize, end_idx: usize) -> Option<f64> {
+    calculate_allele_metrics(hap_matrix, start_idx, end_idx).map(|m| m.pic)
+}
+
+/// Rank and filter blocks by PIC, applied after LD pruning
+pub fn rank_and_filter_blocks(
+    mut all_blocks: BTreeMap<i32, Vec<Block>>,
+    hap_files: &[PathBuf],
+    min_pic: Option<f64>,
+    top_k: Option<usize>,
+    noheader: bool,
+    verbose: bool,
+) -> BTreeMap<i32, Vec<Block>> {
+    // Step 1: compute PIC for every block
+    for (chr_num, blocks) in all_blocks.iter_mut() {
+        let hap_file = hap_files.iter().find(|f| get_chromosome_number(f) == *chr_num);
+        let hap_matrix = match hap_file {
+            Some(f) => match read_haplotype_file(f, noheader, false) {
+                Ok(m) => m,
+                Err(_) => continue,
+            },
+            None => continue,
+        };
+        for block in blocks.iter_mut() {
+            block.pic = compute_block_pic(&hap_matrix, block.start_idx, block.end_idx);
+        }
+    }
+
+    // Step 2: apply --min-pic filter per chromosome
+    if let Some(threshold) = min_pic {
+        for blocks in all_blocks.values_mut() {
+            blocks.retain(|b| b.pic.map_or(false, |p| p >= threshold));
+        }
+    }
+
+    // Step 3: apply --top-k globally, ranked by PIC descending
+    if let Some(k) = top_k {
+        // Flatten all blocks with chr reference
+        let mut all_flat: Vec<(i32, usize, f64)> = all_blocks
+            .iter()
+            .flat_map(|(chr, blocks)| {
+                blocks.iter().enumerate().map(|(i, b)| (*chr, i, b.pic.unwrap_or(0.0)))
+            })
+            .collect();
+
+        all_flat.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap());
+        all_flat.truncate(k);
+
+        // Build keep set: (chr, index)
+        let keep: HashSet<(i32, usize)> = all_flat.iter().map(|(chr, i, _)| (*chr, *i)).collect();
+
+        for (chr, blocks) in all_blocks.iter_mut() {
+            let mut idx = 0;
+            blocks.retain(|_| {
+                let keep_this = keep.contains(&(*chr, idx));
+                idx += 1;
+                keep_this
+            });
+        }
+    }
+
+    if verbose {
+        let total: usize = all_blocks.values().map(|v| v.len()).sum();
+        println!("  After ranking/filtering: {} blocks retained", total);
+    }
+
+    all_blocks
 }

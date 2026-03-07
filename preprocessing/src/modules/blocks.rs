@@ -89,6 +89,7 @@ pub fn define_microhaplotype_blocks(
                         physical_span: None,
                         split_type: None,
                         rare_allele_count: None,
+                        pic: None,
                     });
                 }
 
@@ -108,6 +109,7 @@ pub fn define_microhaplotype_blocks(
                         physical_span: None,
                         split_type: None,
                         rare_allele_count: None,
+                        pic: None,
                     });
                 }
             }
@@ -173,6 +175,7 @@ pub fn define_microhaplotype_blocks(
                                 physical_span: None,
                                 split_type: None,
                                 rare_allele_count: None,
+                                pic: None,
                             });
                             n_output += 1;
                         }
@@ -204,6 +207,7 @@ pub fn define_microhaplotype_blocks(
                                     physical_span: Some(micro.physical_span),
                                     split_type: Some(micro.split_type),
                                     rare_allele_count: None,
+                                    pic: None,
                                 });
                                 n_output += 1;
                             }

@@ -100,3 +100,9 @@ for iter in {1..5}; do
       -v
   done
 done
+
+python extract_selected_genotypes.py \
+      -g /scratch/user/aguswibowo/Research/data/microhaplotypes/geno \
+      -s /scratch/user/aguswibowo/Research/data/microhaplotypes/mh_info/stats/snp_selection_detailed.csv \
+      -o /scratch/user/aguswibowo/Research/data/microhaplotypes/genotypes_microhap.csv \
+      -v

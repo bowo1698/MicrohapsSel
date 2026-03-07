@@ -439,3 +439,45 @@ pub fn rank_and_filter_blocks(
 
     all_blocks
 }
+
+pub fn filter_blocks_by_allele_quality(
+    mut all_blocks: BTreeMap<i32, Vec<Block>>,
+    hap_files: &[PathBuf],
+    min_effective_alleles: Option<f64>,
+    max_rare_alleles_prop: Option<f64>,
+    noheader: bool,
+    verbose: bool,
+) -> BTreeMap<i32, Vec<Block>> {
+    let total_before: usize = all_blocks.values().map(|v| v.len()).sum();
+
+    for (chr_num, blocks) in all_blocks.iter_mut() {
+        let hap_file = hap_files.iter().find(|f| get_chromosome_number(f) == *chr_num);
+        let hap_matrix = match hap_file {
+            Some(f) => match read_haplotype_file(f, noheader, false) {
+                Ok(m) => m,
+                Err(_) => continue,
+            },
+            None => continue,
+        };
+        blocks.retain(|block| {
+            let metrics = match calculate_allele_metrics(&hap_matrix, block.start_idx, block.end_idx) {
+                Some(m) => m,
+                None => return false,
+            };
+            if let Some(min_ea) = min_effective_alleles {
+                if metrics.effective_alleles < min_ea { return false; }
+            }
+            if let Some(max_rp) = max_rare_alleles_prop {
+                if metrics.rare_alleles_prop > max_rp { return false; }
+            }
+            true
+        });
+    }
+
+    if verbose {
+        let total_after: usize = all_blocks.values().map(|v| v.len()).sum();
+        println!("  Allele quality filter: {} -> {} blocks ({} removed)",
+            total_before, total_after, total_before - total_after);
+    }
+    all_blocks
+}

@@ -62,6 +62,12 @@ struct Args {
     #[arg(long = "top-k")]
     top_k: Option<usize>,
 
+    #[arg(long = "min-effective-alleles")]
+    min_effective_alleles: Option<f64>,
+
+    #[arg(long = "max-rare-alleles-prop")]
+    max_rare_alleles_prop: Option<f64>,
+
     #[arg(long = "min-ld")]
     min_ld: Option<f64>,
 
@@ -141,6 +147,10 @@ fn main() -> Result<()> {
     }
     println!("{}\n", "=".repeat(70));
 
+    if let Some(v) = args.min_effective_alleles { println!("Min eff. alleles:  {}", v); }
+    if let Some(v) = args.max_rare_alleles_prop { println!("Max rare prop:     {}", v); }
+    println!("{}\n", "=".repeat(70));
+
     // Convert CLI args to config
     let config = BlockDefinitionConfig {
         method: match args.method {
@@ -197,6 +207,22 @@ fn main() -> Result<()> {
             rare_freq_threshold: 0.05,
         };
         ld_prune_blocks(all_blocks, &hap_files, &prune_config, args.noheader, args.verbose)
+    } else {
+        all_blocks
+    };
+
+    let all_blocks = if args.min_effective_alleles.is_some() || args.max_rare_alleles_prop.is_some() {
+        if args.verbose {
+            println!("\nFiltering blocks by allele quality...");
+        }
+        filter_blocks_by_allele_quality(
+            all_blocks,
+            &hap_files,
+            args.min_effective_alleles,
+            args.max_rare_alleles_prop,
+            args.noheader,
+            args.verbose,
+        )
     } else {
         all_blocks
     };

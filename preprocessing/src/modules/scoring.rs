@@ -459,19 +459,27 @@ pub fn filter_blocks_by_allele_quality(
             },
             None => continue,
         };
+        let mut n_fail_ea = 0usize;
+        let mut n_fail_rp = 0usize;
+        let mut n_pass = 0usize;
         blocks.retain(|block| {
             let metrics = match calculate_allele_metrics(&hap_matrix, block.start_idx, block.end_idx) {
                 Some(m) => m,
                 None => return false,
             };
             if let Some(min_ea) = min_effective_alleles {
-                if metrics.effective_alleles < min_ea { return false; }
+                if metrics.effective_alleles < min_ea { n_fail_ea += 1; return false; }
             }
             if let Some(max_rp) = max_rare_alleles_prop {
-                if metrics.rare_alleles_prop > max_rp { return false; }
+                if metrics.rare_alleles_prop > max_rp { n_fail_rp += 1; return false; }
             }
+            n_pass += 1;
             true
         });
+        if verbose {
+            println!("  Chr {}: fail_eff_alleles={}, fail_rare_prop={}, pass={}",
+                chr_num, n_fail_ea, n_fail_rp, n_pass);
+        }
     }
 
     if verbose {

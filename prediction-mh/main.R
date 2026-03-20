@@ -83,13 +83,19 @@ print(table(cv_setup$folds))
 cat("\n")
 
 # Setup parallel processing
-n_cores <- min(config$k_folds, parallel::detectCores() - 1)
+n_cores <- config$k_folds
+total_cpus <- as.numeric(Sys.getenv("SLURM_CPUS_PER_TASK", parallel::detectCores()))
+n_threads_per_fold <- max(1, floor(total_cpus / (n_cores + 2)))
 cat("Setting up parallel processing with", n_cores, "cores...\n\n")
 
 cl <- makeCluster(n_cores)
 registerDoParallel(cl)
 
+clusterExport(cl, c("n_threads_per_fold"))
+
 clusterEvalQ(cl, {
+  library(RhpcBLASctl)
+  blas_set_num_threads(n_threads_per_fold)
   library(tidyverse)
   library(sommer)
   library(coda)
@@ -345,4 +351,3 @@ cat("\n=== Pipeline Complete ===\n")
 cat("Total runtime:", sprintf("%.2f hours (%.1f mins)", total_runtime_hours, total_runtime_mins), "\n")
 cat("Started:", as.character(pipeline_start_time), "\n")
 cat("Ended:", as.character(pipeline_end_time), "\n")
-

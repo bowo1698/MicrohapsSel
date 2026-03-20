@@ -11,11 +11,23 @@ run_gblup <- function(matrices, split, config) {
     dplyr::rename(y = phenotype)
 
   pheno_train$individual_id <- as.factor(pheno_train$individual_id)
+
+  pheno_test <- pheno_test %>%
+    dplyr::select(individual_id, phenotype, tbv) %>%
+    dplyr::rename(y = phenotype)
+  
+  pheno_test$individual_id <- as.factor(pheno_test$individual_id)
   
   # Add rownames/colnames to A_train
   A_train <- matrices$A_train
+  A_test <- matrices$A_combined[
+    as.character(pheno_test$individual_id),
+    as.character(pheno_test$individual_id)
+  ]
   rownames(A_train) <- pheno_train$individual_id
   colnames(A_train) <- pheno_train$individual_id
+  rownames(A_test) <- levels(pheno_test$individual_id)
+  colnames(A_test) <- levels(pheno_test$individual_id)
   
   # GREML variance component estimation
   model_greml <- mmes(
@@ -28,6 +40,20 @@ run_gblup <- function(matrices, split, config) {
 
   # Extract variance components
   summary(model_greml)
+
+  h2_test_gblup <- tryCatch({
+  model_test <- mmes(
+    fixed = y ~ 1,
+    random = ~ vsm(ism(individual_id), Gu = A_test),
+    rcov = ~ vsm(ism(units)),
+    data = pheno_test,
+    verbose = FALSE
+  )
+  vc <- model_test$theta
+  sg <- vc[[1]][1,1]; se <- vc[[2]][1,1]
+  h2_raw <- sg / (sg + se)
+  if (is.na(h2_raw) || h2_raw < 0 || h2_raw > 1) NA else h2_raw
+}, error = function(e) NA)
   
   # Calculate heritability
   var_comp <- model_greml$theta
@@ -54,7 +80,8 @@ run_gblup <- function(matrices, split, config) {
   
   # Match and reorder to phenotype ID order
   matched_idx <- match(as.character(pheno_train$individual_id), blup_ids)
-  GEBV_train <- as.vector(blup[matched_idx])
+  mu_hat <- mean(pheno_train$y)
+  pred_train <- as.vector(blup[matched_idx]) + mu_hat
   
   # Extract relationship blocks
   A_ref_ref <- matrices$A_combined[
@@ -68,41 +95,43 @@ run_gblup <- function(matrices, split, config) {
   
   lambda <- sigma2_e / sigma2_g
   A_ref_inv <- solve(A_ref_ref + diag(lambda, nrow(A_ref_ref)))
-  GEBV_test <- as.vector(A_test_ref %*% A_ref_inv %*% GEBV_train)
+  pred_test <- as.vector(A_test_ref %*% A_ref_inv %*% (pred_train - mu_hat)) + mu_hat
   
   # Accuracy
-  accuracy_train_pheno <- cor(GEBV_train, pheno_train$y)
-  accuracy_train_tbv <- cor(GEBV_train, pheno_train$tbv)
-  accuracy_test_pheno <- cor(GEBV_test, pheno_test$phenotype)
-  accuracy_test_tbv <- cor(GEBV_test, pheno_test$tbv)
+  accuracy_train_pheno <- cor(pred_train, pheno_train$y)
+  accuracy_train_tbv <- cor(pred_train, pheno_train$tbv)
+  accuracy_test_pheno <- cor(pred_test, pheno_test$y) #phenotype
+  accuracy_test_tbv <- cor(pred_test, pheno_test$tbv)
+  accuracy_test_gebv <- if (!is.na(h2_test_gblup)) accuracy_test_pheno / sqrt(h2_test_gblup) else NA
 
-  b_train_pheno <- calculate_regression_slope(GEBV_train, pheno_train$y)
-  b_train_tbv <- calculate_regression_slope(GEBV_train, pheno_train$tbv)
-  b_test_pheno <- calculate_regression_slope(GEBV_test, pheno_test$phenotype)
-  b_test_tbv <- calculate_regression_slope(GEBV_test, pheno_test$tbv)
+  b_train_pheno <- calculate_regression_slope(pred_train, pheno_train$y)
+  b_train_tbv <- calculate_regression_slope(pred_train, pheno_train$tbv)
+  b_test_pheno <- calculate_regression_slope(pred_test, pheno_test$y)
+  b_test_tbv <- calculate_regression_slope(pred_test, pheno_test$tbv)
 
   # RMSE calculations
-  rmse_train_pheno <- sqrt(mean((GEBV_train - pheno_train$y)^2, na.rm=TRUE))
-  rmse_train_tbv <- sqrt(mean((GEBV_train - pheno_train$tbv)^2, na.rm=TRUE))
-  rmse_test_pheno <- sqrt(mean((GEBV_test - pheno_test$phenotype)^2, na.rm=TRUE))
-  rmse_test_tbv <- sqrt(mean((GEBV_test - pheno_test$tbv)^2, na.rm=TRUE))
+  rmse_train_pheno <- sqrt(mean((pred_train - pheno_train$y)^2, na.rm=TRUE))
+  rmse_train_tbv <- sqrt(mean((pred_train - pheno_train$tbv)^2, na.rm=TRUE))
+  rmse_test_pheno <- sqrt(mean((pred_test - pheno_test$y)^2, na.rm=TRUE))
+  rmse_test_tbv <- sqrt(mean((pred_test - pheno_test$tbv)^2, na.rm=TRUE))
 
   # R² calculations
-  r2_train_pheno <- cor(GEBV_train, pheno_train$y)^2
-  r2_train_tbv <- cor(GEBV_train, pheno_train$tbv)^2
-  r2_test_pheno <- cor(GEBV_test, pheno_test$phenotype)^2
-  r2_test_tbv <- cor(GEBV_test, pheno_test$tbv)^2
+  r2_train_pheno <- cor(pred_train, pheno_train$y)^2
+  r2_train_tbv <- cor(pred_train, pheno_train$tbv)^2
+  r2_test_pheno <- cor(pred_test, pheno_test$y)^2
+  r2_test_tbv <- cor(pred_test, pheno_test$tbv)^2
   
   list(
     predictions = list(
-      train = GEBV_train,
-      test = GEBV_test
+      train = pred_train,
+      test = pred_test
     ),
     accuracy = list(
       train_pheno = accuracy_train_pheno,
       train_tbv = accuracy_train_tbv,
       test_pheno = accuracy_test_pheno,
-      test_tbv = accuracy_test_tbv
+      test_tbv = accuracy_test_tbv,
+      test_gebv = accuracy_test_gebv
     ),
     regression_slopes = list(
       train_pheno = b_train_pheno,
@@ -126,6 +155,7 @@ run_gblup <- function(matrices, split, config) {
       sigma2_g = sigma2_g,
       sigma2_e = sigma2_e,
       h2 = h2,
+      h2_test = h2_test_gblup,
       lambda = lambda,
       mean_diag_train = mean(diag(A_train)),
       mean_diag_combined = mean(diag(matrices$A_combined))

@@ -6,9 +6,9 @@ gen <- as.integer(Sys.getenv("GEN", "1"))
 config <- list(
   # Paths
   base_dir = "/scratch/user/aguswibowo/Research/iter_seq/model_run",
-  data_dir = file.path("/scratch/user/aguswibowo/Research/simulation/output/trout", 
+  data_dir = file.path("/QRISdata/Q8514/research_data/trout2", 
                      paste0("iteration_", iter)),
-  output_dir = file.path("/scratch/user/aguswibowo/Research/iter_seq/output/trout_SNP_normal",
+  output_dir = file.path("/scratch/user/aguswibowo/Research/iter_seq/output3/trout_SNP_normal",
                        paste0("iteration_", iter, "_gen", gen)),
 
   # Data settings
@@ -24,13 +24,13 @@ config <- list(
   duplicate_threshold = 0.995,
 
   # Fold setting
-  k_folds = 10,
+  k_folds = 5,
   seed = 123,
 
   # Model parameters
   bayesian = list(
-    niter = 40000,
-    nburn = 20000,
+    niter = 50000,
+    nburn = 25000,
     thin = 10
   ),
   bayesR = list(

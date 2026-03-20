@@ -13,33 +13,19 @@ run_bayesR <- function(matrices, split, gblup_varcomp, config, fold = 0) {
   pi_vec <- config$bayesR$pi
   sigma2_ah <- gblup_varcomp$sigma2_g
   sigma2_e_init <- gblup_varcomp$sigma2_e
-  
-  # Variance components per mixture using variance from GBLUP
-  var_class <- config$bayesR$var_class
-  
-  # Residual prior
-  a0_e <- config$bayesR$prior_df$residual
-  b0_e <- sigma2_e_init * (a0_e - 1)
-  
-  # Base genetic variance prior 
-  sum_vx <- sum(apply(W_train, 2, var))
-  a0_g <- config$bayesR$prior_df$genetic
-  s2vara <- sigma2_ah * (a0_g - 2) / a0_g
-  b0_g <- s2vara / ((1 - pi_vec[1]) * sum_vx)
 
   prior_params <- list(
-    a0_e = a0_e,
-    b0_e = b0_e,
-    a0_g = a0_g,
-    b0_g = b0_g,
-    variance_class = var_class
+    a0_e = config$bayesR$prior_df$residual,
+    a0_g = config$bayesR$prior_df$genetic,
+    variance_class = config$bayesR$var_class
   )
 
   cat("BayesR Settings:\n")
   cat("π =", pi_vec, "\n")
   cat("σ²_αh =", round(sigma2_ah, 6), "| σ²_e =", round(sigma2_e_init, 6), "\n")
+  cat("a0_e =", prior_params$a0_e, "| a0_g =", prior_params$a0_g, "\n")
+  cat("var_class =", prior_params$variance_class, "\n")
   cat("fold:", fold, "\n")
-  cat("sum_vx:", round(sum_vx, 4), "| b0_g:", round(b0_g, 8), "\n\n")
   
   cat("Running BayesR with MCMC algorithm...\n\n")
 
@@ -66,7 +52,7 @@ run_bayesR <- function(matrices, split, gblup_varcomp, config, fold = 0) {
   beta_hat <- res$beta_hat
   mu_hat <- res$mu_hat
   sigma2_e_hat <- res$sigma2_e_hat
-  GEBV_train <- res$gebv_train
+  pred_train <- res$pred_train
   sigma2_g_bayesr <- res$sigma2_g
   h2_bayesr <- res$h2
 
@@ -104,7 +90,7 @@ run_bayesR <- function(matrices, split, gblup_varcomp, config, fold = 0) {
   )
   
   # Direct marker effect prediction
-  GEBV_test <- W_test %*% beta_hat + mu_hat
+  pred_test <- W_test %*% beta_hat + mu_hat
 
   cat("Posterior Means:\n")
   cat("σ²_e:", round(sigma2_e_hat, 6), "\n")
@@ -119,28 +105,31 @@ run_bayesR <- function(matrices, split, gblup_varcomp, config, fold = 0) {
   pheno_train <- split$train$phenotypes
   pheno_test <- split$test$phenotypes
   
-  accuracy_train_pheno <- cor(GEBV_train, pheno_train$phenotype, use="complete.obs")
-  accuracy_train_tbv <- cor(GEBV_train, pheno_train$tbv, use="complete.obs")
-  accuracy_test_pheno <- cor(GEBV_test, pheno_test$phenotype, use="complete.obs")
-  accuracy_test_tbv <- cor(GEBV_test, pheno_test$tbv, use="complete.obs")
+  accuracy_train_pheno <- cor(pred_train, pheno_train$phenotype, use="complete.obs")
+  accuracy_train_tbv <- cor(pred_train, pheno_train$tbv, use="complete.obs")
+  accuracy_test_pheno <- cor(pred_test, pheno_test$phenotype, use="complete.obs")
+  accuracy_test_tbv <- cor(pred_test, pheno_test$tbv, use="complete.obs")
+
+  h2_test_bayesr <- var(as.vector(pred_test)) / (var(as.vector(pred_test)) + sigma2_e_hat)
+  accuracy_test_gebv <- accuracy_test_pheno / sqrt(h2_test_bayesr)
 
   # Regression slopes
-  b_train_pheno <- calculate_regression_slope(GEBV_train, pheno_train$phenotype)
-  b_train_tbv <- calculate_regression_slope(GEBV_train, pheno_train$tbv)
-  b_test_pheno <- calculate_regression_slope(GEBV_test, pheno_test$phenotype)
-  b_test_tbv <- calculate_regression_slope(GEBV_test, pheno_test$tbv)
+  b_train_pheno <- calculate_regression_slope(pred_train, pheno_train$phenotype)
+  b_train_tbv <- calculate_regression_slope(pred_train, pheno_train$tbv)
+  b_test_pheno <- calculate_regression_slope(pred_test, pheno_test$phenotype)
+  b_test_tbv <- calculate_regression_slope(pred_test, pheno_test$tbv)
   
   # RMSE calculations
-  rmse_train_pheno <- sqrt(mean((GEBV_train - pheno_train$phenotype)^2, na.rm=TRUE))
-  rmse_train_tbv <- sqrt(mean((GEBV_train - pheno_train$tbv)^2, na.rm=TRUE))
-  rmse_test_pheno <- sqrt(mean((GEBV_test - pheno_test$phenotype)^2, na.rm=TRUE))
-  rmse_test_tbv <- sqrt(mean((GEBV_test - pheno_test$tbv)^2, na.rm=TRUE))
+  rmse_train_pheno <- sqrt(mean((pred_train - pheno_train$phenotype)^2, na.rm=TRUE))
+  rmse_train_tbv <- sqrt(mean((pred_train - pheno_train$tbv)^2, na.rm=TRUE))
+  rmse_test_pheno <- sqrt(mean((pred_test - pheno_test$phenotype)^2, na.rm=TRUE))
+  rmse_test_tbv <- sqrt(mean((pred_test - pheno_test$tbv)^2, na.rm=TRUE))
 
   # R² calculations
-  r2_train_pheno <- cor(GEBV_train, pheno_train$phenotype, use="complete.obs")^2
-  r2_train_tbv <- cor(GEBV_train, pheno_train$tbv, use="complete.obs")^2
-  r2_test_pheno <- cor(GEBV_test, pheno_test$phenotype, use="complete.obs")^2
-  r2_test_tbv <- cor(GEBV_test, pheno_test$tbv, use="complete.obs")^2
+  r2_train_pheno <- cor(pred_train, pheno_train$phenotype, use="complete.obs")^2
+  r2_train_tbv <- cor(pred_train, pheno_train$tbv, use="complete.obs")^2
+  r2_test_pheno <- cor(pred_test, pheno_test$phenotype, use="complete.obs")^2
+  r2_test_tbv <- cor(pred_test, pheno_test$tbv, use="complete.obs")^2
 
   ## Compute Credible Intervals
   # Marker statistics
@@ -153,8 +142,8 @@ run_bayesR <- function(matrices, split, gblup_varcomp, config, fold = 0) {
 
   marker_info <- tryCatch({
     # Verify dimensions
-    if(nrow(matrices$allele_info) != ncol(W_train)) {
-      stop("allele_info rows (", nrow(matrices$allele_info), 
+    if(length(matrices$allele_info$allele_id) != ncol(W_train)) {
+      stop("allele_info length (", length(matrices$allele_info$allele_id), 
           ") != W_train columns (", ncol(W_train), ")")
     }
 
@@ -182,14 +171,15 @@ run_bayesR <- function(matrices, split, gblup_varcomp, config, fold = 0) {
   
   list(
     predictions = list(
-      train = as.vector(GEBV_train),
-      test = as.vector(GEBV_test)
+      train = as.vector(pred_train),
+      test = as.vector(pred_test)
     ),
     accuracy = list(
       train_pheno = accuracy_train_pheno,
       train_tbv = accuracy_train_tbv,
       test_pheno = accuracy_test_pheno,
-      test_tbv = accuracy_test_tbv
+      test_tbv = accuracy_test_tbv,
+      test_gebv = accuracy_test_gebv
     ),
     regression_slopes = list(
       train_pheno = b_train_pheno,
@@ -216,7 +206,8 @@ run_bayesR <- function(matrices, split, gblup_varcomp, config, fold = 0) {
       sigma2_large = sigma2_large_hat,
       pi = pi_hat,
       sigma2_g = sigma2_g_bayesr,
-      h2 = h2_bayesr
+      h2 = h2_bayesr,
+      h2_test = h2_test_bayesr
     ),
     markers = marker_info,
     samples = if(config$save_mcmc_samples) {

@@ -77,8 +77,14 @@ split_fold_data <- function(data, fold_assignments, fold_id) {
 }
 
 compute_allele_frequencies <- function(hap_cols, config) {
+
+  # Pool both copy per blok with strip suffix _1
+  col_names <- colnames(hap_cols)
+  block_names <- sub("_1$", "", col_names)
+  hap_cols_pooled <- hap_cols
+  colnames(hap_cols_pooled) <- block_names
   
-  allele_freq <- hap_cols %>%
+  allele_freq <- hap_cols_pooled %>%
     pivot_longer(everything(), names_to = "haplotype", values_to = "allele") %>%
     count(haplotype, allele) %>%
     group_by(haplotype) %>%

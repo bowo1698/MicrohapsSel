@@ -6,15 +6,15 @@ gen <- as.integer(Sys.getenv("GEN", "1"))
 config <- list(
   # Paths
   base_dir = "/scratch/user/aguswibowo/Research/iter_seq/model_run",
-  data_dir = file.path("/scratch/user/aguswibowo/Research/simulation/output/trout", 
+  data_dir = file.path("/scratch/user/aguswibowo/Research/simulation/output/trout2", 
                      paste0("iteration_", iter)),
-  output_dir = file.path("/scratch/user/aguswibowo/Research/iter_seq/output/trout_SNP_mixture-from-mh",
+  output_dir = file.path("/scratch/user/aguswibowo/Research/iter_seq/output3/trout_SNP_normal-rand",
                        paste0("iteration_", iter, "_gen", gen)),
 
   # Data settings
-  phenotype = paste0("trout_gen", gen, "_phenotypes_mixture.csv"),
+  phenotype = paste0("trout_gen", gen, "_phenotypes_normal.csv"),
   pedigree = "trout_pedigree_all.csv",
-  genotype = paste0("genotypes_microhap_gen", gen, ".csv"),
+  genotype = paste0("genotypes_5k_gen", gen, ".csv"),
   population_type = "reference",
   target_generation = gen,
   
@@ -24,13 +24,13 @@ config <- list(
   duplicate_threshold = 0.995,
 
   # Fold setting
-  k_folds = 10,
+  k_folds = 5,
   seed = 123,
 
   # Model parameters
   bayesian = list(
-    niter = 40000,
-    nburn = 20000,
+    niter = 50000,
+    nburn = 25000,
     thin = 10
   ),
   bayesR = list(

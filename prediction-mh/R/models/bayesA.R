@@ -14,19 +14,16 @@ run_bayesA <- function(matrices, split, gblup_varcomp, config, fold = 0) {
   nu <- config$bayesA$nu
   sigma2_g <- gblup_varcomp$sigma2_g
   sigma2_e_init <- gblup_varcomp$sigma2_e
-  S_squared <- sigma2_g / n_alleles
-  
   a0_e <- config$bayesA$prior_df_residual
-  b0_e <- sigma2_e_init * (a0_e - 1)
 
   prior_params <- list(
-    a0_e = a0_e,
-    b0_e = b0_e
+    a0_e = a0_e
   )
 
   cat("BayesA Settings:\n")
-  cat("ν =", nu, "| S² =", round(S_squared, 8), "\n")
+  cat("ν =", nu, "| σ²_g =", round(sigma2_g, 6), "\n")
   cat("σ²_e_init =", round(sigma2_e_init, 6), "\n\n")
+  cat("fold:", fold, "\n\n")
 
   cat("Running BayesA with MCMC algorithm...\n\n")
 
@@ -36,7 +33,7 @@ run_bayesA <- function(matrices, split, gblup_varcomp, config, fold = 0) {
     wtw_diag = WtW_diag,
     wty = Wty,
     nu = nu,
-    s_squared = S_squared,
+    sigma2_g = sigma2_g,
     sigma2_e_init = sigma2_e_init,
     prior_params = prior_params,
     mcmc_params = list(
@@ -54,7 +51,7 @@ run_bayesA <- function(matrices, split, gblup_varcomp, config, fold = 0) {
   mu_hat <- res$mu_hat
   sigma2_j_hat <- res$sigma2_j_hat
   sigma2_e_A_hat <- res$sigma2_e_hat
-  GEBV_train <- res$gebv_train
+  pred_train <- res$pred_train
   sigma2_g_bayesa <- res$sigma2_g
   h2_bayesa <- res$h2
     
@@ -74,7 +71,7 @@ run_bayesA <- function(matrices, split, gblup_varcomp, config, fold = 0) {
   )
   
   # Direct marker effect prediction
-  GEBV_test <- W_test %*% beta_A_hat + mu_hat
+  pred_test <- W_test %*% beta_A_hat + mu_hat
 
   cat("\nBayesA Posterior Means:\n")
   cat("σ²_e:", round(sigma2_e_A_hat, 6), "\n")
@@ -87,28 +84,31 @@ run_bayesA <- function(matrices, split, gblup_varcomp, config, fold = 0) {
   pheno_train <- split$train$phenotypes
   pheno_test <- split$test$phenotypes
   
-  accuracy_train_pheno <- cor(GEBV_train, pheno_train$phenotype, use="complete.obs")
-  accuracy_train_tbv <- cor(GEBV_train, pheno_train$tbv, use="complete.obs")
-  accuracy_test_pheno <- cor(GEBV_test, pheno_test$phenotype, use="complete.obs")
-  accuracy_test_tbv <- cor(GEBV_test, pheno_test$tbv, use="complete.obs")
+  accuracy_train_pheno <- cor(pred_train, pheno_train$phenotype, use="complete.obs")
+  accuracy_train_tbv <- cor(pred_train, pheno_train$tbv, use="complete.obs")
+  accuracy_test_pheno <- cor(pred_test, pheno_test$phenotype, use="complete.obs")
+  accuracy_test_tbv <- cor(pred_test, pheno_test$tbv, use="complete.obs")
+
+  h2_test_bayesa <- var(as.vector(pred_test)) / (var(as.vector(pred_test)) + sigma2_e_A_hat)
+  accuracy_test_gebv <- accuracy_test_pheno / sqrt(h2_test_bayesa)
 
   # Regression slopes
-  b_train_pheno <- calculate_regression_slope(GEBV_train, pheno_train$phenotype)
-  b_train_tbv <- calculate_regression_slope(GEBV_train, pheno_train$tbv)
-  b_test_pheno <- calculate_regression_slope(GEBV_test, pheno_test$phenotype)
-  b_test_tbv <- calculate_regression_slope(GEBV_test, pheno_test$tbv)
+  b_train_pheno <- calculate_regression_slope(pred_train, pheno_train$phenotype)
+  b_train_tbv <- calculate_regression_slope(pred_train, pheno_train$tbv)
+  b_test_pheno <- calculate_regression_slope(pred_test, pheno_test$phenotype)
+  b_test_tbv <- calculate_regression_slope(pred_test, pheno_test$tbv)
   
   # RMSE calculations
-  rmse_train_pheno <- sqrt(mean((GEBV_train - pheno_train$phenotype)^2, na.rm=TRUE))
-  rmse_train_tbv <- sqrt(mean((GEBV_train - pheno_train$tbv)^2, na.rm=TRUE))
-  rmse_test_pheno <- sqrt(mean((GEBV_test - pheno_test$phenotype)^2, na.rm=TRUE))
-  rmse_test_tbv <- sqrt(mean((GEBV_test - pheno_test$tbv)^2, na.rm=TRUE))
+  rmse_train_pheno <- sqrt(mean((pred_train - pheno_train$phenotype)^2, na.rm=TRUE))
+  rmse_train_tbv <- sqrt(mean((pred_train - pheno_train$tbv)^2, na.rm=TRUE))
+  rmse_test_pheno <- sqrt(mean((pred_test - pheno_test$phenotype)^2, na.rm=TRUE))
+  rmse_test_tbv <- sqrt(mean((pred_test - pheno_test$tbv)^2, na.rm=TRUE))
 
   # R² calculations
-  r2_train_pheno <- cor(GEBV_train, pheno_train$phenotype, use="complete.obs")^2
-  r2_train_tbv <- cor(GEBV_train, pheno_train$tbv, use="complete.obs")^2
-  r2_test_pheno <- cor(GEBV_test, pheno_test$phenotype, use="complete.obs")^2
-  r2_test_tbv <- cor(GEBV_test, pheno_test$tbv, use="complete.obs")^2
+  r2_train_pheno <- cor(pred_train, pheno_train$phenotype, use="complete.obs")^2
+  r2_train_tbv <- cor(pred_train, pheno_train$tbv, use="complete.obs")^2
+  r2_test_pheno <- cor(pred_test, pheno_test$phenotype, use="complete.obs")^2
+  r2_test_tbv <- cor(pred_test, pheno_test$tbv, use="complete.obs")^2
 
   # Marker statistics
   ## Compute Credible Intervals
@@ -139,14 +139,15 @@ run_bayesA <- function(matrices, split, gblup_varcomp, config, fold = 0) {
   
   list(
     predictions = list(
-      train = as.vector(GEBV_train),
-      test = as.vector(GEBV_test)
+      train = as.vector(pred_train),
+      test = as.vector(pred_test)
     ),
     accuracy = list(
       train_pheno = accuracy_train_pheno,
       train_tbv = accuracy_train_tbv,
       test_pheno = accuracy_test_pheno,
-      test_tbv = accuracy_test_tbv
+      test_tbv = accuracy_test_tbv,
+      test_gebv = accuracy_test_gebv
     ),
     regression_slopes = list(
       train_pheno = b_train_pheno,
@@ -171,7 +172,8 @@ run_bayesA <- function(matrices, split, gblup_varcomp, config, fold = 0) {
       mean_sigma2_j = mean(sigma2_j_hat),
       range_sigma2_j = range(sigma2_j_hat),
       sigma2_g = sigma2_g_bayesa,
-      h2 = h2_bayesa
+      h2 = h2_bayesa,
+      h2_test = h2_test_bayesa
     ),
     markers = marker_info,
     samples = if(config$save_mcmc_samples) {

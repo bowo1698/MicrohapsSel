@@ -30,13 +30,18 @@ cat("Total individuals:", nrow(data$phenotype), "\n")
 cat("Total SNP markers:", ncol(data$genotype) - 1, "\n")
 
 # Setup parallel processing
-n_cores <- min(config$k_folds, parallel::detectCores() - 1)
-cat("Setting up parallel processing with", n_cores, "cores...\n\n")
+n_cores <- config$k_folds
+total_cpus <- as.numeric(Sys.getenv("SLURM_CPUS_PER_TASK", parallel::detectCores()))
+n_threads_per_fold <- max(1, floor(total_cpus / (n_cores + 2)))
 
 cl <- makeCluster(n_cores)
 registerDoParallel(cl)
 
+clusterExport(cl, c("config", "n_threads_per_fold"))
+
 clusterEvalQ(cl, {
+  library(RhpcBLASctl)
+  blas_set_num_threads(n_threads_per_fold)
   library(tidyverse)
   library(sommer)
   library(coda)
@@ -83,12 +88,6 @@ prep_time <- as.numeric(difftime(Sys.time(), prep_start, units = "hours"))
 cat("Data preparation complete | N final =", nrow(prep_result$phenotype), 
     "| SNPs retained =", prep_result$qc_n_retained, 
     sprintf("| Time: %.2f min\n\n", prep_time * 60))
-
-total_cpus <- as.numeric(Sys.getenv("SLURM_CPUS_PER_TASK", parallel::detectCores()))
-n_threads_per_fold <- max(1, floor(total_cpus / (n_cores + 2)))
-cat("Parallel setup: Threads per fold =", n_threads_per_fold, "\n\n")
-
-clusterExport(cl, c("config", "n_threads_per_fold"))
 
 clusterExport(cl, c("train_gblup", "predict_gblup", "predict_gblup_train",
                     "train_bayesA", "predict_bayesA", "predict_bayesA_train",
@@ -152,6 +151,8 @@ all_results <- foreach(fold = 1:config$k_folds,
     cat("  GRM_train dim:", dim(GRM_train), "\n")
     GRM_val_train <- shared_data$GRM_full[val_idx, train_idx]
     cat("  GRM_val_train dim:", dim(GRM_val_train), "\n")
+    GRM_val_val <- shared_data$GRM_full[val_idx, val_idx]
+    cat("  GRM_val_val dim:", dim(GRM_val_val), "\n")
 
     rm(shared_data)
     invisible(gc(full = TRUE))
@@ -163,7 +164,7 @@ all_results <- foreach(fold = 1:config$k_folds,
     
     # GBLUP
     cat("Starting GBLUP...\n")
-    gblup_fit <- train_gblup(y_train, GRM_train, n_threads_per_fold)
+    gblup_fit <- train_gblup(y_train, GRM_train, n_threads_per_fold, GRM_val = GRM_val_val, y_val = y_val, val_ids = val_ids)
     cat("  GBLUP fit success:", gblup_fit$success, "\n")
     if(gblup_fit$success) {
       gblup_pred_train <- predict_gblup_train(gblup_fit, GRM_train, y_train)
@@ -171,7 +172,7 @@ all_results <- foreach(fold = 1:config$k_folds,
       
       if(gblup_pred$success) {
         eval_train <- evaluate_model_train(gblup_pred_train$pred, tbv_train, y_train, "GBLUP")
-        eval_val <- evaluate_model(gblup_pred$pred, tbv_val, y_val, "GBLUP")
+        eval_val <- evaluate_model(gblup_pred$pred, tbv_val, y_val, "GBLUP", h2_test = gblup_fit$h2_test)
         results_fold$GBLUP <- data.frame(
           Fold = fold,
           eval_val,
@@ -179,6 +180,7 @@ all_results <- foreach(fold = 1:config$k_folds,
           Train_Time = gblup_fit$train_time,
           Pred_Time = gblup_pred$pred_time,
           h2 = gblup_fit$h2,
+          h2_test = gblup_fit$h2_test,
           stringsAsFactors = FALSE
         )
         predictions_fold$GBLUP <- gblup_pred$pred
@@ -197,7 +199,7 @@ all_results <- foreach(fold = 1:config$k_folds,
     # BayesA
     cat("Starting BayesA...\n")
     pheno_data <- data.frame(id = train_ids, phenotype = y_train)
-    bayesA_fit <- train_bayesA(pheno_data, geno_train_standardized, train_ids, config, n_threads_per_fold)
+    bayesA_fit <- train_bayesA(pheno_data, geno_train_standardized, train_ids, config, n_threads_per_fold, y_val = y_val, geno_val = geno_val_standardized)
     cat("  BayesA fit success:", bayesA_fit$success, "\n")
     if(bayesA_fit$success) {
       bayesA_pred_train <- predict_bayesA_train(bayesA_fit$fit, geno_train_standardized)
@@ -205,7 +207,7 @@ all_results <- foreach(fold = 1:config$k_folds,
       
       if(bayesA_pred$success) {
         eval_train <- evaluate_model_train(bayesA_pred_train$pred, tbv_train, y_train, "BayesA")
-        eval_val <- evaluate_model(bayesA_pred$pred, tbv_val, y_val, "BayesA")
+        eval_val <- evaluate_model(bayesA_pred$pred, tbv_val, y_val, "BayesA", h2_test = bayesA_fit$h2_test)
         results_fold$BayesA <- data.frame(
           Fold = fold,
           eval_val,
@@ -213,6 +215,7 @@ all_results <- foreach(fold = 1:config$k_folds,
           Train_Time = bayesA_fit$train_time,
           Pred_Time = bayesA_pred$pred_time,
           h2 = bayesA_fit$h2,
+          h2_test = bayesA_fit$h2_test,
           stringsAsFactors = FALSE
         )
         predictions_fold$BayesA <- bayesA_pred$pred
@@ -228,7 +231,7 @@ all_results <- foreach(fold = 1:config$k_folds,
     
     # BayesR
     cat("Starting BayesR...\n")
-    bayesR_fit <- train_bayesR(pheno_data, geno_train_standardized, train_ids, vg_init, ve_init, config, n_threads_per_fold)
+    bayesR_fit <- train_bayesR(pheno_data, geno_train_standardized, train_ids, vg_init, ve_init, config, n_threads_per_fold, y_val = y_val, geno_val = geno_val_standardized)
     cat("  BayesR fit success:", bayesR_fit$success, "\n")
     if(bayesR_fit$success) {
       bayesR_pred_train <- predict_bayesR_train(bayesR_fit$fit, geno_train_standardized)
@@ -236,7 +239,7 @@ all_results <- foreach(fold = 1:config$k_folds,
       
       if(bayesR_pred$success) {
         eval_train <- evaluate_model_train(bayesR_pred_train$pred, tbv_train, y_train, "BayesR")
-        eval_val <- evaluate_model(bayesR_pred$pred, tbv_val, y_val, "BayesR")
+        eval_val <- evaluate_model(bayesR_pred$pred, tbv_val, y_val, "BayesR", h2_test = bayesR_fit$h2_test)
         results_fold$BayesR <- data.frame(
           Fold = fold,
           eval_val,
@@ -244,6 +247,7 @@ all_results <- foreach(fold = 1:config$k_folds,
           Train_Time = bayesR_fit$train_time,
           Pred_Time = bayesR_pred$pred_time,
           h2 = bayesR_fit$h2,
+          h2_test = bayesR_fit$h2_test,
           stringsAsFactors = FALSE
         )
         predictions_fold$BayesR <- bayesR_pred$pred

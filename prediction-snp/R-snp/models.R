@@ -6,7 +6,7 @@ suppressPackageStartupMessages({
   library(hibayes)
 })
 
-train_gblup <- function(y_train, GRM_train, n_threads) {
+train_gblup <- function(y_train, GRM_train, GRM_val = NULL, y_val = NULL, val_ids = NULL, n_threads) {
   result <- tryCatch({
     train_time <- system.time({
       n <- length(y_train)
@@ -36,6 +36,28 @@ train_gblup <- function(y_train, GRM_train, n_threads) {
       var_g <- var_comp[[1]][1,1]
       var_e <- var_comp[[2]][1,1]
       h2 <- var_g / (var_g + var_e)
+
+      h2_test <- NA
+      if (!is.null(GRM_val) && !is.null(y_val)) {
+        n_val <- length(y_val)
+        v_ids <- if (!is.null(val_ids)) as.character(val_ids) else paste0("ID_", 1:n_val)
+        rownames(GRM_val) <- v_ids
+        colnames(GRM_val) <- v_ids
+        pheno_val_df <- data.frame(ID = v_ids, y = y_val, units = 1:n_val)
+        h2_test <- tryCatch({
+          fit_val <- mmes(
+            fixed = y ~ 1,
+            random = ~ vsm(ism(ID), Gu = GRM_val),
+            rcov = ~ vsm(ism(units)),
+            data = pheno_val_df,
+            verbose = FALSE
+          )
+          vc <- fit_val$theta
+          sg <- vc[[1]][1,1]; se <- vc[[2]][1,1]
+          h2_raw <- sg / (sg + se)
+          if (is.na(h2_raw) || h2_raw < 0 || h2_raw > 1) NA else h2_raw
+        }, error = function(e) NA)
+      }
       
       # Extract BLUP - handle list or matrix
       if(is.list(fit$u)) {
@@ -70,7 +92,8 @@ train_gblup <- function(y_train, GRM_train, n_threads) {
       var_g = var_g,
       var_e = var_e,
       train_time = train_time[3],
-      h2 = h2
+      h2 = h2,
+      h2_test = h2_test
     )
   }, error = function(e) {
     cat("GBLUP FAILED:", e$message, "\n")
@@ -172,7 +195,7 @@ predict_gblup <- function(gblup_fit, GRM_val_train, y_train, GRM_train) {
   return(result)
 }
 
-train_bayesA <- function(pheno_data, geno_train_filtered, train_ids, config, n_threads = 1) {
+train_bayesA <- function(pheno_data, geno_train_filtered, train_ids, config, n_threads = 1, y_val = NULL, geno_val = NULL) {
   result <- tryCatch({
     train_time <- system.time({
       fit <- ibrm(
@@ -188,12 +211,23 @@ train_bayesA <- function(pheno_data, geno_train_filtered, train_ids, config, n_t
         verbose = FALSE
       )
     })
+
+    h2_test <- NA
+    if (!is.null(y_val) && !is.null(geno_val)) {
+      pred_val <- as.vector(fit$mu + geno_val %*% fit$alpha)
+      ve_post <- as.numeric(fit$Ve)
+      h2_test <- tryCatch({
+        h2_raw <- var(pred_val) / (var(pred_val) + ve_post)
+        if (!is.finite(h2_raw) || h2_raw < 0 || h2_raw > 1) NA_real_ else h2_raw
+      }, error = function(e) NA_real_)
+    }
     
     list(
       success = TRUE,
       fit = fit,
       train_time = train_time[3],
-      h2 = fit$h2
+      h2 = fit$h2,
+      h2_test = h2_test
     )
   }, error = function(e) {
     cat("BayesA FAILED:", e$message, "\n")
@@ -225,7 +259,7 @@ predict_bayesA <- function(fit, geno_val_filtered) {
   return(result)
 }
 
-train_bayesR <- function(pheno_data, geno_train_filtered, train_ids, vg, ve, config, n_threads = 1) {
+train_bayesR <- function(pheno_data, geno_train_filtered, train_ids, vg, ve, config, n_threads = 1, y_val = NULL, geno_val = NULL) {
   result <- tryCatch({
     train_time <- system.time({
       fit <- ibrm(
@@ -234,7 +268,7 @@ train_bayesR <- function(pheno_data, geno_train_filtered, train_ids, vg, ve, con
         M = geno_train_filtered,
         M.id = train_ids,
         method = "BayesR",
-        fold = config$bayesR$fold,
+        fold = config$bayesR$var_class,
         vg = vg,
         ve = ve,
         niter = config$bayesian$niter,
@@ -244,12 +278,23 @@ train_bayesR <- function(pheno_data, geno_train_filtered, train_ids, vg, ve, con
         verbose = FALSE
       )
     })
+
+    h2_test <- NA
+    if (!is.null(y_val) && !is.null(geno_val)) {
+      pred_val <- as.vector(fit$mu + geno_val %*% fit$alpha)
+      ve_post <- as.numeric(fit$Ve)
+      h2_test <- tryCatch({
+        h2_raw <- var(pred_val) / (var(pred_val) + ve_post)
+        if (!is.finite(h2_raw) || h2_raw < 0 || h2_raw > 1) NA_real_ else h2_raw
+      }, error = function(e) NA_real_)
+    }
     
     list(
       success = TRUE,
       fit = fit,
       train_time = train_time[3],
-      h2 = fit$h2
+      h2 = fit$h2,
+      h2_test = h2_test
     )
   }, error = function(e) {
     cat("BayesR FAILED:", e$message, "\n")

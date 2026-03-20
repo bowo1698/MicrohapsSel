@@ -5,26 +5,29 @@ suppressPackageStartupMessages({
   library(tidyverse)
 })
 
-evaluate_model <- function(predicted, true_tbv, true_pheno, model_name) {
+evaluate_model <- function(predicted, true_tbv, true_pheno, model_name, h2_test = NA) {
   r_tbv <- cor(predicted, true_tbv, use = "complete.obs")
   r2_tbv <- r_tbv^2
   rmse_tbv <- sqrt(mean((predicted - true_tbv)^2, na.rm = TRUE))
   mae_tbv <- mean(abs(predicted - true_tbv), na.rm = TRUE)
-  bias_lm_tbv <- lm(predicted ~ true_tbv)
+  bias_lm_tbv <- lm(true_tbv ~ predicted)
   bias_slope_tbv <- coef(bias_lm_tbv)[2]
   rank_cor_tbv <- cor(predicted, true_tbv, method = "spearman", use = "complete.obs")
   
   r_pheno <- cor(predicted, true_pheno, use = "complete.obs")
+  cor_gebv <- if (!is.na(h2_test) && h2_test > 0) r_pheno / sqrt(h2_test) else NA
   r2_pheno <- r_pheno^2
   rmse_pheno <- sqrt(mean((predicted - true_pheno)^2, na.rm = TRUE))
   mae_pheno <- mean(abs(predicted - true_pheno), na.rm = TRUE)
-  bias_lm_pheno <- lm(predicted ~ true_pheno)
+  bias_lm_pheno <- lm(true_pheno ~ predicted)
   bias_slope_pheno <- coef(bias_lm_pheno)[2]
   rank_cor_pheno <- cor(predicted, true_pheno, method = "spearman", use = "complete.obs")
   
   data.frame(
     Model = model_name,
     Cor_TBV = r_tbv,
+    Cor_GEBV = cor_gebv,
+    h2_test = h2_test,
     R2_TBV = r2_tbv,
     RMSE_TBV = rmse_tbv,
     MAE_TBV = mae_tbv,
@@ -60,6 +63,10 @@ aggregate_cv_results <- function(all_cv_results) {
       Model = unique(x$Model),
       Correlation = mean(x$Cor_TBV),
       Correlation_SD = sd(x$Cor_TBV),
+      Cor_GEBV = mean(x$Cor_GEBV, na.rm = TRUE),
+      Cor_GEBV_SD = sd(x$Cor_GEBV, na.rm = TRUE),
+      h2_test = mean(x$h2_test, na.rm = TRUE),
+      h2_test_SD = sd(x$h2_test, na.rm = TRUE),
       R2 = mean(x$R2_TBV),
       RMSE = mean(x$RMSE_TBV),
       RMSE_SD = sd(x$RMSE_TBV),

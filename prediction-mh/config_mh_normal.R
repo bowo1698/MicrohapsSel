@@ -8,7 +8,7 @@ config <- list(
   base_dir = "/scratch/user/aguswibowo/Research/iter_seq/model_run",
   data_dir = file.path("/QRISdata/Q8514/research_data/trout2", ##
                      paste0("iteration_", iter)),
-  output_dir = file.path("/scratch/user/aguswibowo/Research/iter_seq/output/trout_mh_normal2", 
+  output_dir = file.path("/scratch/user/aguswibowo/Research/iter_seq/output3/trout_mh_normal", 
                      paste0("iteration_", iter, "_gen", gen)),
   
   # Data settings
@@ -25,24 +25,24 @@ config <- list(
   drop_baseline = TRUE,
   
   # Cross-validation
-  k_folds = 10,
+  k_folds = 5,
   cv_seed = 123,
   stratify_by_sire = TRUE,
   min_offspring_per_sire = 5,
   
   # MCMC settings
-  n_iter = 40000,      # MCMC iterations
-  n_burn = 20000,      # for MCMC
+  n_iter = 50000,      # MCMC iterations
+  n_burn = 25000,      # for MCMC
   n_thin = 10,         # for MCMC
   seed = 123,
   
   # BayesR hyperparameters
   bayesR = list(
-    pi = c(0.5, 0.487, 0.01, 0.003),
-    var_class = c(0, 0.0001, 0.001, 0.01),
+    pi = c(0.50, 0.30, 0.15, 0.05),
+    var_class = c(0, 0.001, 0.01, 0.1),
     prior_df = list(
       residual = 10,
-      genetic = 4
+      genetic = 10
     )
   ),
   

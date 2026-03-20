@@ -7,20 +7,24 @@ calculate_regression_slope <- function(predicted, observed) {
 
 aggregate_fold_results <- function(gblup_res, bayesR_res, bayesA_res, fold_id) {
   
-  list(
+  result <- list(
     fold = fold_id,
     gblup_train_pheno = gblup_res$accuracy$train_pheno,
     gblup_train_tbv = gblup_res$accuracy$train_tbv,
     gblup_test_pheno = gblup_res$accuracy$test_pheno,
     gblup_test_tbv = gblup_res$accuracy$test_tbv,
+    gblup_test_gebv = gblup_res$accuracy$test_gebv,
     gblup_h2 = gblup_res$varcomp$h2,
+    gblup_h2_test = gblup_res$varcomp$h2_test,
     gblup_mean_diag_train = gblup_res$varcomp$mean_diag_train,
     gblup_mean_diag_combined = gblup_res$varcomp$mean_diag_combined,
     bayesR_train_pheno = bayesR_res$accuracy$train_pheno,
     bayesR_train_tbv = bayesR_res$accuracy$train_tbv,
     bayesR_test_pheno = bayesR_res$accuracy$test_pheno,
     bayesR_test_tbv = bayesR_res$accuracy$test_tbv,
+    bayesR_test_gebv = bayesR_res$accuracy$test_gebv,
     bayesR_h2 = bayesR_res$varcomp$h2,
+    bayesR_h2_test = bayesR_res$varcomp$h2_test,
     bayesR_mean_ess = bayesR_res$diagnostics$mean_ess,
     bayesR_min_ess = bayesR_res$diagnostics$min_ess,
     bayesR_ess_sigma2_e = if(is.list(bayesR_res$diagnostics$ess)) bayesR_res$diagnostics$ess$sigma2_e else bayesR_res$diagnostics$ess,
@@ -29,7 +33,9 @@ aggregate_fold_results <- function(gblup_res, bayesR_res, bayesA_res, fold_id) {
     bayesA_train_tbv = bayesA_res$accuracy$train_tbv,
     bayesA_test_pheno = bayesA_res$accuracy$test_pheno,
     bayesA_test_tbv = bayesA_res$accuracy$test_tbv,
+    bayesA_test_gebv = bayesA_res$accuracy$test_gebv,
     bayesA_h2 = bayesA_res$varcomp$h2,
+    bayesA_h2_test = bayesA_res$varcomp$h2_test,
     gblup_b_train_pheno = gblup_res$regression_slopes$train_pheno,
     gblup_b_train_tbv = gblup_res$regression_slopes$train_tbv,
     gblup_b_test_pheno = gblup_res$regression_slopes$test_pheno,
@@ -80,6 +86,11 @@ aggregate_fold_results <- function(gblup_res, bayesR_res, bayesA_res, fold_id) {
     bayesR_efficiency = (bayesR_res$runtime * bayesR_res$n_cores) / bayesR_res$accuracy$test_tbv,
     bayesA_efficiency = (bayesA_res$runtime * bayesA_res$n_cores) / bayesA_res$accuracy$test_tbv
   )
+  lens <- sapply(result, length)
+  bad <- lens[lens != 1]
+  if (length(bad) > 0) cat("FIELD LENGTH != 1:", paste(names(bad), bad, sep="=", collapse=", "), "\n")
+  
+  result
 }
 
 summarize_cv_results <- function(results_list) {
@@ -96,8 +107,12 @@ summarize_cv_results <- function(results_list) {
       GBLUP_test_pheno_sd = sd(gblup_test_pheno),
       GBLUP_test_tbv_mean = mean(gblup_test_tbv),
       GBLUP_test_tbv_sd = sd(gblup_test_tbv),
+      GBLUP_test_gebv_mean = mean(gblup_test_gebv, na.rm=TRUE),
+      GBLUP_test_gebv_sd = sd(gblup_test_gebv, na.rm=TRUE),
       GBLUP_h2_mean = mean(gblup_h2),
       GBLUP_h2_sd = sd(gblup_h2),
+      GBLUP_h2_test_mean = mean(gblup_h2_test, na.rm=TRUE),
+      GBLUP_h2_test_sd = sd(gblup_h2_test, na.rm=TRUE),
       GBLUP_mean_diag_train_mean = mean(gblup_mean_diag_train),
       GBLUP_mean_diag_train_sd = sd(gblup_mean_diag_train),
       GBLUP_mean_diag_combined_mean = mean(gblup_mean_diag_combined),
@@ -110,8 +125,12 @@ summarize_cv_results <- function(results_list) {
       BayesR_test_pheno_sd = sd(bayesR_test_pheno),
       BayesR_test_tbv_mean = mean(bayesR_test_tbv),
       BayesR_test_tbv_sd = sd(bayesR_test_tbv),
+      BayesR_test_gebv_mean = mean(bayesR_test_gebv, na.rm=TRUE),
+      BayesR_test_gebv_sd = sd(bayesR_test_gebv, na.rm=TRUE),
       BayesR_h2_mean = mean(bayesR_h2),
       BayesR_h2_sd = sd(bayesR_h2),
+      BayesR_h2_test_mean = mean(bayesR_h2_test, na.rm=TRUE),
+      BayesR_h2_test_sd = sd(bayesR_h2_test, na.rm=TRUE),
       BayesR_mean_ess_mean = mean(bayesR_mean_ess, na.rm = TRUE),
       BayesR_mean_ess_sd = sd(bayesR_mean_ess, na.rm = TRUE),
       BayesR_min_ess_mean = mean(bayesR_min_ess, na.rm = TRUE),
@@ -126,8 +145,12 @@ summarize_cv_results <- function(results_list) {
       BayesA_test_pheno_sd = sd(bayesA_test_pheno),
       BayesA_test_tbv_mean = mean(bayesA_test_tbv),
       BayesA_test_tbv_sd = sd(bayesA_test_tbv),
+      BayesA_test_gebv_mean = mean(bayesA_test_gebv, na.rm=TRUE),
+      BayesA_test_gebv_sd = sd(bayesA_test_gebv, na.rm=TRUE),
       BayesA_h2_mean = mean(bayesA_h2),
       BayesA_h2_sd = sd(bayesA_h2),
+      BayesA_h2_test_mean = mean(bayesA_h2_test, na.rm=TRUE),
+      BayesA_h2_test_sd = sd(bayesA_h2_test, na.rm=TRUE),
       BayesA_mean_ess_mean = mean(bayesA_mean_ess, na.rm = TRUE),
       BayesA_mean_ess_sd = sd(bayesA_mean_ess, na.rm = TRUE),
       BayesA_min_ess_mean = mean(bayesA_min_ess, na.rm = TRUE),
@@ -341,19 +364,21 @@ save_fold_results <- function(fold_id, gblup_res, bayesR_res, bayesA_res, matric
     geweke_z = NA_real_
   ))
 
+  # BayesR
   diagnostics_summary <- rbind(diagnostics_summary, data.frame(
     model = "BayesR",
     h2 = bayesR_res$varcomp$h2,
     ess = if(is.list(bayesR_res$diagnostics$ess)) bayesR_res$diagnostics$ess$sigma2_e else bayesR_res$diagnostics$mean_ess,
     geweke_z = if(is.list(bayesR_res$diagnostics$geweke_z)) bayesR_res$diagnostics$geweke_z$sigma2_e else NA_real_
- ))
+  ))
 
+  # BayesA
   diagnostics_summary <- rbind(diagnostics_summary, data.frame(
     model = "BayesA",
     h2 = bayesA_res$varcomp$h2,
     ess = if(is.list(bayesA_res$diagnostics$ess)) bayesA_res$diagnostics$ess$sigma2_e else bayesA_res$diagnostics$mean_ess,
     geweke_z = if(is.list(bayesA_res$diagnostics$geweke_z)) bayesA_res$diagnostics$geweke_z$sigma2_e else NA_real_
- ))
+  ))
 
   write.csv(
     diagnostics_summary,
@@ -398,6 +423,22 @@ print_cv_summary <- function(summary_stats) {
                          summary_stats$BayesA_test_tbv_mean, 
                          summary_stats$BayesA_test_tbv_sd), "\n")
   
+  cat("\nTEST Accuracy ± SD (Phenotype):\n")
+  cat("GBLUP:  ", sprintf("%.4f ± %.4f", 
+                         summary_stats$GBLUP_test_pheno_mean, 
+                         summary_stats$GBLUP_test_pheno_sd), "\n")
+  cat("BayesR: ", sprintf("%.4f ± %.4f", 
+                         summary_stats$BayesR_test_pheno_mean, 
+                         summary_stats$BayesR_test_pheno_sd), "\n")
+  cat("BayesA: ", sprintf("%.4f ± %.4f", 
+                         summary_stats$BayesA_test_pheno_mean, 
+                         summary_stats$BayesA_test_pheno_sd), "\n")
+  
+  cat("\nTEST Accuracy ± SD (GEBV = r_MP / sqrt(h2_test)):\n")
+  cat("GBLUP:  ", sprintf("%.4f ± %.4f", summary_stats$GBLUP_test_gebv_mean, summary_stats$GBLUP_test_gebv_sd), "\n")
+  cat("BayesR: ", sprintf("%.4f ± %.4f", summary_stats$BayesR_test_gebv_mean, summary_stats$BayesR_test_gebv_sd), "\n")
+  cat("BayesA: ", sprintf("%.4f ± %.4f", summary_stats$BayesA_test_gebv_mean, summary_stats$BayesA_test_gebv_sd), "\n")
+  
   cat("\nMean h² ± SD:\n")
   cat("GBLUP:  ", sprintf("%.4f ± %.4f", 
                          summary_stats$GBLUP_h2_mean, 
@@ -408,6 +449,11 @@ print_cv_summary <- function(summary_stats) {
   cat("BayesA: ", sprintf("%.4f ± %.4f", 
                          summary_stats$BayesA_h2_mean, 
                          summary_stats$BayesA_h2_sd), "\n")
+  
+  cat("\nMean h² test ± SD:\n")
+  cat("GBLUP:  ", sprintf("%.4f ± %.4f", summary_stats$GBLUP_h2_test_mean, summary_stats$GBLUP_h2_test_sd), "\n")
+  cat("BayesR: ", sprintf("%.4f ± %.4f", summary_stats$BayesR_h2_test_mean, summary_stats$BayesR_h2_test_sd), "\n")
+  cat("BayesA: ", sprintf("%.4f ± %.4f", summary_stats$BayesA_h2_test_mean, summary_stats$BayesA_h2_test_sd), "\n")
   
   cat("\nTRAINING RMSE ± SD (TBV):\n")
   cat("GBLUP:  ", sprintf("%.4f ± %.4f", 
@@ -441,6 +487,17 @@ print_cv_summary <- function(summary_stats) {
   cat("BayesA: ", sprintf("%.4f ± %.4f", 
                         summary_stats$BayesA_b_train_tbv_mean, 
                         summary_stats$BayesA_b_train_tbv_sd), "\n")
+  
+  cat("\nTEST Regression Slope (b) ± SD (Phenotype):\n")
+  cat("GBLUP:  ", sprintf("%.4f ± %.4f", 
+                        summary_stats$GBLUP_b_test_pheno_mean, 
+                        summary_stats$GBLUP_b_test_pheno_sd), "\n")
+  cat("BayesR: ", sprintf("%.4f ± %.4f", 
+                        summary_stats$BayesR_b_test_pheno_mean, 
+                        summary_stats$BayesR_b_test_pheno_sd), "\n")
+  cat("BayesA: ", sprintf("%.4f ± %.4f", 
+                        summary_stats$BayesA_b_test_pheno_mean, 
+                        summary_stats$BayesA_b_test_pheno_sd), "\n")
   
   cat("\nEfficiency (Core-Hours / Test Accuracy) ± SD:\n")
   cat("GBLUP:  ", sprintf("%.2f ± %.2f", 

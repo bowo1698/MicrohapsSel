@@ -128,6 +128,33 @@ construct_matrices <- function(train_data, test_data, allele_freq, config) {
     reference_structure = W_result_train,
     drop_baseline = config$drop_baseline
   )
+
+  # Filter zero-variance columns
+  col_var <- apply(W_result_train$W_ah, 2, var)
+  keep <- col_var > 0
+  cat("Removing", sum(!keep), "zero-variance columns from", length(keep), "\n")
+
+  W_result_train$W_ah <- W_result_train$W_ah[, keep]
+  W_result_test$W_ah <- W_result_test$W_ah[, keep]
+
+  # Standardize W_ah
+  vx_before <- apply(W_result_train$W_ah, 2, var)
+  cat("W_ah BEFORE scaling | mean col-var:", round(mean(vx_before), 4),
+      "| sum_vx:", round(sum(vx_before), 2), "\n")
+
+  scale_factor <- sqrt(mean(vx_before))
+  W_result_train$W_ah <- W_result_train$W_ah / scale_factor
+  W_result_test$W_ah  <- W_result_test$W_ah  / scale_factor
+
+  vx_after <- apply(W_result_train$W_ah, 2, var)
+  cat("W_ah AFTER  scaling | mean col-var:", round(mean(vx_after), 4),
+      "| sum_vx:", round(sum(vx_after), 2),
+      "| scale_factor:", round(scale_factor, 4), "\n")
+
+  # Update allele_info metadata to match
+  if (!is.null(W_result_train$allele_info)) {
+    W_result_train$allele_info <- lapply(W_result_train$allele_info, function(x) x[keep])
+  }
   
   grm <- construct_grm(W_result_train$W_ah, W_result_test$W_ah)
 

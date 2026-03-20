@@ -43,7 +43,7 @@ struct Args {
 }
 
 fn sort_files(files: &mut Vec<PathBuf>, nosort: bool) {
-    if nosort {
+    if !nosort {
         let re = Regex::new(r"\d+").unwrap();
         files.sort_by_key(|f| {
             f.to_str()

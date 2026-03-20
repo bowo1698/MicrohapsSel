@@ -606,3 +606,85 @@ pub fn save_coverage_stats(
 
     Ok(())
 }
+
+pub fn write_criterion_b_summary(
+    all_blocks: &BTreeMap<i32, Vec<Block>>,
+    output_dir: &str,
+    verbose: bool,
+) -> Result<()> {
+    let stats_dir = format!("{}/stats", output_dir);
+    fs::create_dir_all(&stats_dir)?;
+
+    let mut scores: Vec<f64> = all_blocks.values()
+        .flat_map(|blocks| blocks.iter())
+        .filter_map(|b| b.criterion_b_score)
+        .filter(|s| s.is_finite())
+        .collect();
+
+    let n_infinite = all_blocks.values()
+        .flat_map(|b| b.iter())
+        .filter_map(|b| b.criterion_b_score)
+        .filter(|s| s.is_infinite())
+        .count();
+
+    if scores.is_empty() {
+        return Ok(());
+    }
+
+    scores.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    let n = scores.len();
+    let mean = scores.iter().sum::<f64>() / n as f64;
+    let median = scores[n / 2];
+    let p25  = scores[n / 4];
+    let p75  = scores[3 * n / 4];
+    let p90  = scores[(n as f64 * 0.90) as usize];
+
+    let bins   = [0.0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.50, f64::INFINITY];
+    let labels = ["0.00-0.05","0.05-0.10","0.10-0.15","0.15-0.20",
+                  "0.20-0.25","0.25-0.30","0.30-0.35","0.35-0.40",
+                  "0.40-0.50",">0.50"];
+    let mut hist = vec![0usize; labels.len()];
+    for &s in &scores {
+        for i in 0..bins.len()-1 {
+            if s >= bins[i] && s < bins[i+1] { hist[i] += 1; break; }
+        }
+    }
+
+    let summary_file = format!("{}/criterion_b_summary.txt", stats_dir);
+    let mut f = File::create(&summary_file)?;
+    writeln!(f, "CRITERION-B SCORE SUMMARY")?;
+    writeln!(f, "=========================")?;
+    writeln!(f, "Total blocks (finite):  {}", n)?;
+    writeln!(f, "Blocks with inf score:  {}", n_infinite)?;
+    writeln!(f, "Min:    {:.6}", scores[0])?;
+    writeln!(f, "P25:    {:.6}", p25)?;
+    writeln!(f, "Median: {:.6}", median)?;
+    writeln!(f, "Mean:   {:.6}", mean)?;
+    writeln!(f, "P75:    {:.6}", p75)?;
+    writeln!(f, "P90:    {:.6}", p90)?;
+    writeln!(f, "Max:    {:.6}", scores[n-1])?;
+    writeln!(f, "\nDISTRIBUTION")?;
+    writeln!(f, "------------")?;
+    for (label, count) in labels.iter().zip(hist.iter()) {
+        let pct = *count as f64 / n as f64 * 100.0;
+        let bar: String = "#".repeat((*count as f64 / n as f64 * 40.0) as usize);
+        writeln!(f, "{:12}  {:5}  ({:5.1}%)  {}", label, count, pct, bar)?;
+    }
+    writeln!(f, "\nPER-CHROMOSOME MEAN")?;
+    writeln!(f, "-------------------")?;
+    for (chr, blocks) in all_blocks {
+        let chr_scores: Vec<f64> = blocks.iter()
+            .filter_map(|b| b.criterion_b_score)
+            .filter(|s| s.is_finite())
+            .collect();
+        if !chr_scores.is_empty() {
+            let chr_mean = chr_scores.iter().sum::<f64>() / chr_scores.len() as f64;
+            writeln!(f, "Chr {:2}:  {:.6}  (n={})", chr, chr_mean, chr_scores.len())?;
+        }
+    }
+
+    if verbose {
+        println!("  ✓ Criterion-B summary: {}", summary_file);
+    }
+    Ok(())
+}

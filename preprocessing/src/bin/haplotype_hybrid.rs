@@ -41,6 +41,9 @@ struct Args {
     #[arg(long = "md", default_value_t = 0.10)]
     md: f64,
 
+    #[arg(long = "max-criterion-b")]
+    max_criterion_b: Option<f64>,
+
     #[arg(long = "no-dedup")]
     no_dedup: bool,
 
@@ -126,6 +129,9 @@ fn main() -> Result<()> {
             }
             println!("Criterion-B AFT:   {}", args.aft);
             println!("Criterion-B MD:    {}", args.md);
+            if let Some(max_b) = args.max_criterion_b {
+                println!("Max Criterion-B:   {}", max_b);
+            }
             if args.ld_prune {
                 println!("LD pruning:        r²>{}, window={}bp", args.ld_prune_r2, args.ld_prune_window_bp);
             }
@@ -169,6 +175,7 @@ fn main() -> Result<()> {
         aft: args.aft,
         md: args.md,
         min_ld: args.min_ld,
+        max_criterion_b: args.max_criterion_b,
         noheader: args.noheader,
         verbose: args.verbose,
     };
@@ -263,6 +270,7 @@ fn main() -> Result<()> {
         args.verbose,
     )?;
 
+    write_criterion_b_summary(&all_blocks, &args.output, args.verbose)?;
     write_snp_selection_file(&all_blocks, &snp_map, &args.output, args.verbose)?;
 
     // Write output files

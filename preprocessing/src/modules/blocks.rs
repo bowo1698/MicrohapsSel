@@ -149,6 +149,7 @@ pub fn define_microhaplotype_blocks(
                 }
 
                 let mut n_output = 0;
+                let mut n_filtered_b = 0;
                 for haploblock in &haploblocks {
                     match config.haplotype_type {
                         HaplotypeType::Pure => {
@@ -192,6 +193,12 @@ pub fn define_microhaplotype_blocks(
                             );
 
                             for micro in microhaplotypes {
+                                if let Some(max_b) = config.max_criterion_b {
+                                    if micro.criterion_b_score > max_b {
+                                        n_filtered_b += 1;
+                                        continue;
+                                    }
+                                }
                                 let sel_indices = &micro.snp_indices;
                                 blocks.push(Block {
                                     chr: chr_num,
@@ -221,6 +228,10 @@ pub fn define_microhaplotype_blocks(
                         HaplotypeType::Micro => "microhaplotypes",
                     };
                     println!("  Generated {} {} from {} LD blocks", n_output, output_label, haploblocks.len());
+                    if config.max_criterion_b.is_some() {
+                        println!("  Criterion-B filter: {} removed, {} retained",
+                            n_filtered_b, n_output);
+                    }
 
                     let scores: Vec<f64> = blocks
                         .iter()

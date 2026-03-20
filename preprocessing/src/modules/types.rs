@@ -78,6 +78,7 @@ pub struct BlockDefinitionConfig {
     pub aft: f64,
     pub md: f64,
     pub min_ld: Option<f64>,
+    pub max_criterion_b: Option<f64>,
     pub noheader: bool,
     pub verbose: bool,
 }
@@ -95,6 +96,7 @@ impl Default for BlockDefinitionConfig {
             aft: 0.08,
             md: 0.10,
             min_ld: None,
+            max_criterion_b: None,
             noheader: false,
             verbose: false,
         }

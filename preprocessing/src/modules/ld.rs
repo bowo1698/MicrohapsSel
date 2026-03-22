@@ -48,11 +48,12 @@ pub fn build_ld_haploblocks(
     }
 
     let mut d_primes = Vec::new();
+    let mut prev_col = hap_matrix.column(0).to_vec();
     for i in 0..n_snps - 1 {
-        let snp1 = hap_matrix.column(i).to_vec();
-        let snp2 = hap_matrix.column(i + 1).to_vec();
-        let d_prime = calculate_d_prime(&snp1, &snp2);
+        let next_col = hap_matrix.column(i + 1).to_vec();
+        let d_prime = calculate_d_prime(&prev_col, &next_col);
         d_primes.push(d_prime);
+        prev_col = next_col;  // reuse
     }
 
     if verbose {

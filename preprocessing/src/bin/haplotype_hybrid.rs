@@ -14,13 +14,16 @@ struct Args {
     #[arg(short = 'm', long = "map", required = true)]
     map: String,
 
+    #[arg(long = "ncores", default_value_t = 1)]
+    ncores: usize,
+
     #[arg(long = "method", default_value = "ld-haploblock")]
     method: MethodArg,
 
     #[arg(long = "window-bp", default_value_t = 125)]
     window_bp: i32,
 
-    #[arg(long = "haplotype-type", default_value = "pure")]
+    #[arg(long = "haplotype-type", default_value = "micro")]
     haplotype_type: HaplotypeTypeArg,
 
     #[arg(short = 'w', long = "window", default_value_t = 4)]
@@ -180,6 +183,15 @@ fn main() -> Result<()> {
         verbose: args.verbose,
     };
 
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(args.ncores)
+        .build_global()
+        .unwrap();
+    
+    if args.verbose {
+        println!("Threads:           {}", args.ncores);
+    }
+
     // Read map file
     let snp_map = read_map_file(&args.map)?;
 
@@ -187,7 +199,9 @@ fn main() -> Result<()> {
     let hap_files = expand_and_sort_files(&args.input)?;
 
     // Define blocks
+    let t_define = std::time::Instant::now();
     let all_blocks = define_microhaplotype_blocks(&hap_files, &snp_map, &config)?;
+    println!("[timing] define_blocks:     {:.1}s", t_define.elapsed().as_secs_f64());
 
     // Deduplication
     let all_blocks = if !args.no_dedup {
@@ -259,7 +273,8 @@ fn main() -> Result<()> {
         },
         Method::SnpCountSimple => "snp_count_simple",
     };
-
+    
+    let t_csv = std::time::Instant::now();
     write_csv_outputs(
         &all_blocks,
         &hap_files,
@@ -269,15 +284,22 @@ fn main() -> Result<()> {
         args.noheader,
         args.verbose,
     )?;
+    println!("[timing] write_csv_outputs: {:.1}s", t_csv.elapsed().as_secs_f64());
 
+    let t_cb = std::time::Instant::now();
     write_criterion_b_summary(&all_blocks, &args.output, args.verbose)?;
+    println!("[timing] criterion_b_summary: {:.1}s", t_cb.elapsed().as_secs_f64());
+
+    let t_snp = std::time::Instant::now();
     write_snp_selection_file(&all_blocks, &snp_map, &args.output, args.verbose)?;
+    println!("[timing] snp_selection:     {:.1}s", t_snp.elapsed().as_secs_f64());
 
     // Write output files
     println!("\nWriting output files:");
     let total_blocks = write_output_files(&all_blocks, &args.output, args.verbose)?;
 
     // Generate genotypes if requested
+    let t_geno = std::time::Instant::now();
     if let Some(ref geno_prefix) = args.generate_genotypes {
         let parent_dir = Path::new(&args.output)
             .parent()
@@ -303,12 +325,15 @@ fn main() -> Result<()> {
             args.verbose,
         )?;
     }
+    println!("[timing] generate_genotypes: {:.1}s", t_geno.elapsed().as_secs_f64());
 
     // Calculate genome coverage
+    let t_cov = std::time::Instant::now();
     let coverage_stats = calculate_genome_coverage(&all_blocks, &snp_map, args.verbose)?;
 
     // Save coverage stats
     save_coverage_stats(&coverage_stats, &args.output, method_label, args.verbose)?;
+    println!("[timing] coverage:          {:.1}s", t_cov.elapsed().as_secs_f64());
 
     // Summary
     println!("\n{}", "=".repeat(70));

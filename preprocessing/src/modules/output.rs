@@ -4,6 +4,7 @@ use std::fs::{self, File};
 use std::io::{Write, BufRead};
 use std::path::{Path, PathBuf};
 use anyhow::Result;
+use rayon::prelude::*;
 
 use super::types::*;
 use super::io::*;
@@ -68,111 +69,117 @@ pub fn generate_haplotype_genotypes(
         println!("\nGenerating haplotype genotypes...");
     }
 
-    for hap_file in hap_files {
-        let chr_num = get_chromosome_number(hap_file);
+    let missing_code_owned = missing_code.map(|s| s.to_string());
+    let missing_value_owned = missing_value.to_string();
+    let output_dir_owned = output_dir.to_path_buf();
 
-        if !all_blocks.contains_key(&chr_num) || all_blocks[&chr_num].is_empty() {
-            if verbose {
-                println!("  Chr {}: No blocks defined, skipping", chr_num);
-            }
-            continue;
-        }
+    let results: Vec<Result<()>> = hap_files
+        .par_iter()
+        .map(|hap_file| {
+            let chr_num = get_chromosome_number(hap_file);
 
-        let blocks = &all_blocks[&chr_num];
-
-        if verbose {
-            println!("  Chr {}: Processing {} blocks", chr_num, blocks.len());
-        }
-
-        let file = File::open(hap_file)?;
-        let reader = std::io::BufReader::new(file);
-        let lines: Vec<String> = reader
-            .lines()
-            .collect::<Result<Vec<_>, std::io::Error>>()?;
-
-        let start_idx = if noheader { 0 } else { 1 };
-        let haps: Vec<Vec<String>> = lines
-            .iter()
-            .skip(start_idx)
-            .filter_map(|line: &String| {
-                let parts: Vec<String> = line
-                    .split_whitespace()
-                    .map(|s: &str| s.to_string())
-                    .collect();
-                if parts.len() >= 2 {
-                    Some(parts)
-                } else {
-                    None
+            if !all_blocks.contains_key(&chr_num) || all_blocks[&chr_num].is_empty() {
+                if verbose {
+                    println!("  Chr {}: No blocks defined, skipping", chr_num);
                 }
-            })
-            .collect();
+                return Ok(());
+            }
 
-        let mut codes = Vec::new();
-        for block in blocks {
-            let mut label = 1;
-            let mut hap_dict = HashMap::new();
+            let blocks = &all_blocks[&chr_num];
 
-            for hh in &haps {
-                let h: String = hh[1..].join("");
-                let start_pos = block.start_idx * 2;
-                let end_pos = block.end_idx * 2 + 2;
-                let h_part = &h[start_pos..end_pos];
+            if verbose {
+                println!("  Chr {}: Processing {} blocks", chr_num, blocks.len());
+            }
 
-                let parent1: String = h_part.chars().step_by(2).collect();
-                let parent2: String = h_part.chars().skip(1).step_by(2).collect();
+            let file = File::open(hap_file)?;
+            let reader = std::io::BufReader::new(file);
+            let lines: Vec<String> = reader
+                .lines()
+                .collect::<std::result::Result<Vec<_>, std::io::Error>>()?;
 
-                for p in [parent1, parent2] {
-                    if let Some(mc) = missing_code {
-                        if p.contains(mc) {
-                            hap_dict.insert(p, missing_value.to_string());
-                            continue;
+            let start_idx = if noheader { 0 } else { 1 };
+            let haps: Vec<Vec<String>> = lines
+                .iter()
+                .skip(start_idx)
+                .filter_map(|line: &String| {
+                    let parts: Vec<String> = line
+                        .split_whitespace()
+                        .map(|s: &str| s.to_string())
+                        .collect();
+                    if parts.len() >= 2 { Some(parts) } else { None }
+                })
+                .collect();
+
+            let mut codes = Vec::new();
+            for block in blocks {
+                let mut label = 1;
+                let mut hap_dict = HashMap::new();
+
+                for hh in &haps {
+                    let h: String = hh[1..].join("");
+                    let start_pos = block.start_idx * 2;
+                    let end_pos = block.end_idx * 2 + 2;
+                    let h_part = &h[start_pos..end_pos];
+
+                    let parent1: String = h_part.chars().step_by(2).collect();
+                    let parent2: String = h_part.chars().skip(1).step_by(2).collect();
+
+                    for p in [parent1, parent2] {
+                        if let Some(ref mc) = missing_code_owned {
+                            if p.contains(mc.as_str()) {
+                                hap_dict.insert(p, missing_value_owned.clone());
+                                continue;
+                            }
+                        }
+                        if !hap_dict.contains_key(&p) {
+                            hap_dict.insert(p, label.to_string());
+                            label += 1;
                         }
                     }
+                }
+                codes.push(hap_dict);
+            }
 
-                    if !hap_dict.contains_key(&p) {
-                        hap_dict.insert(p, label.to_string());
-                        label += 1;
+            let outfile = output_dir_owned.join(format!("hap_geno_{}", chr_num));
+            let mut o = File::create(&outfile)?;
+
+            let mut header = vec!["ID".to_string()];
+            for b in 1..=blocks.len() {
+                header.push(format!("hap_{}_{}\thap_{}_{}", chr_num, b, chr_num, b));
+            }
+            writeln!(o, "{}", header.join("\t"))?;
+
+            for hh in &haps {
+                let ind = &hh[0];
+                let h: String = hh[1..].join("");
+                let mut output = vec![ind.clone()];
+
+                for (c, block) in blocks.iter().enumerate() {
+                    let start_pos = block.start_idx * 2;
+                    let end_pos = block.end_idx * 2 + 2;
+                    let h_part = &h[start_pos..end_pos];
+
+                    let parent1: String = h_part.chars().step_by(2).collect();
+                    let parent2: String = h_part.chars().skip(1).step_by(2).collect();
+
+                    for p in [parent1, parent2] {
+                        output.push(codes[c][&p].clone());
                     }
                 }
+                writeln!(o, "{}", output.join("\t"))?;
             }
 
-            codes.push(hap_dict);
-        }
-
-        let outfile = output_dir.join(format!("hap_geno_{}", chr_num));
-        let mut o = File::create(&outfile)?;
-
-        let mut header = vec!["ID".to_string()];
-        for b in 1..=blocks.len() {
-            header.push(format!("hap_{}_{}\thap_{}_{}", chr_num, b, chr_num, b));
-        }
-        writeln!(o, "{}", header.join("\t"))?;
-
-        for hh in &haps {
-            let ind = &hh[0];
-            let h: String = hh[1..].join("");
-
-            let mut output = vec![ind.clone()];
-
-            for (c, block) in blocks.iter().enumerate() {
-                let start_pos = block.start_idx * 2;
-                let end_pos = block.end_idx * 2 + 2;
-                let h_part = &h[start_pos..end_pos];
-
-                let parent1: String = h_part.chars().step_by(2).collect();
-                let parent2: String = h_part.chars().skip(1).step_by(2).collect();
-
-                for p in [parent1, parent2] {
-                    output.push(codes[c][&p].clone());
-                }
+            if verbose {
+                println!("    Written: {}", outfile.display());
             }
 
-            writeln!(o, "{}", output.join("\t"))?;
-        }
+            Ok(())
+        })
+        .collect();
 
-        if verbose {
-            println!("    Written: {}", outfile.display());
-        }
+    // propagate error jika ada
+    for result in results {
+        result?;
     }
 
     Ok(())

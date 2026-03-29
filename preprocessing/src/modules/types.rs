@@ -57,6 +57,7 @@ pub struct Microhaplotype {
 pub enum Method {
     LdHaploblock,
     SnpCountSimple,
+    FixedKb,
 }
 
 #[derive(Debug, Clone)]

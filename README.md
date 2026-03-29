@@ -379,30 +379,37 @@ For example, at locus `hap_1_1`, individual `ind_1` has alleles `2` and `1`, mea
 ### Usage Example
 
 ```bash
-# microhaplotype discovery and genotyping
-./haplotype-hybrid \
-      --method ld-haploblock \
-      --haplotype-type micro \
-      --d-prime-threshold 0.45 \
-      --window-bp 125 \
-      --min-snps 2 \
-      --aft 0.08 \
-      --md 0.10 \
+# Microhaplotype discovery and genotyping (LD-based, physical window)
+./haplotype-hybrid ld-haploblock micro \
       -i hap/chr* \
       -m map.txt \
-      -o mh_info_ld_haploblock \
+      -o mh_info_ld_micro \
       --generate-genotypes mh_genotypes \
       -v
 
-# fully haplotype discovery and genotyping
-./haplotype-hybrid \
-    --method snp-count-simple \
-    -w 4 \
-    -i hap/chr* \
-    -m map.txt \
-    -o hap_info_snp_4 \
-    --generate-genotypes haplo_genotypes \
-    -v
+# Haplotype discovery and genotyping (LD-based, best SNP selection)
+./haplotype-hybrid ld-haploblock pure \
+      -i hap/chr* \
+      -m map.txt \
+      -o mh_info_ld_pure \
+      --generate-genotypes hap_genotypes \
+      -v
+
+# Fixed physical distance blocks (Bian et al. 2021, 100 kb)
+./haplotype-hybrid fixed-kb --window-bp 100000 \
+      -i hap/chr* \
+      -m map.txt \
+      -o mh_info_fixedkb \
+      --generate-genotypes fixedkb_genotypes \
+      -v
+
+# Fixed SNP count per block
+./haplotype-hybrid snp-count --window 4 \
+      -i hap/chr* \
+      -m map.txt \
+      -o mh_info_snpcount \
+      --generate-genotypes snpcount_genotypes \
+      -v
 ```
 
 ### Key Parameters

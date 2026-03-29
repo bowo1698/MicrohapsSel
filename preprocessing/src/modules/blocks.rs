@@ -265,6 +265,40 @@ pub fn define_microhaplotype_blocks(
                         }
                     }
                 }
+
+                Method::FixedKb => {
+                    let window_bp = config.window_bp as i64;
+                    let mut i = 0;
+                    while i < chr_snps.len() {
+                        let start_pos = chr_snps[i].position;
+                        let end_pos = start_pos + window_bp;
+
+                        let snps_in_window: Vec<usize> = (i..chr_snps.len())
+                            .take_while(|&j| chr_snps[j].position < end_pos)
+                            .collect();
+
+                        let n = snps_in_window.len();
+                        if n >= config.min_snps {
+                            blocks.push(Block {
+                                chr: chr_num,
+                                start_pos,
+                                end_pos: chr_snps[i + n - 1].position,
+                                start_idx: i,
+                                end_idx: i + n - 1,
+                                n_snps: n,
+                                mean_ld_r2: None,
+                                criterion_b_score: None,
+                                selection_type: None,
+                                original_block_size: None,
+                                physical_span: Some(chr_snps[i + n - 1].position - start_pos),
+                                split_type: Some("fixed_kb".to_string()),
+                                rare_allele_count: None,
+                                pic: None,
+                            });
+                        }
+                        i += n.max(1);
+                    }
+                }
             }
 
             if config.verbose {

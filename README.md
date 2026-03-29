@@ -380,36 +380,40 @@ For example, at locus `hap_1_1`, individual `ind_1` has alleles `2` and `1`, mea
 
 ```bash
 # Microhaplotype discovery and genotyping (LD-based, physical window)
-./haplotype-hybrid ld-haploblock micro \
+./haplotype-hybrid \
       -i hap/chr* \
       -m map.txt \
       -o mh_info_ld_micro \
       --generate-genotypes mh_genotypes \
-      -v
+      -v \
+      ld-haploblock micro --window-bp 125
 
 # Haplotype discovery and genotyping (LD-based, best SNP selection)
-./haplotype-hybrid ld-haploblock pure \
+./haplotype-hybrid \
       -i hap/chr* \
       -m map.txt \
       -o mh_info_ld_pure \
       --generate-genotypes hap_genotypes \
-      -v
+      -v \
+      ld-haploblock pure --window 4
 
-# Fixed physical distance blocks (Bian et al. 2021, 100 kb)
-./haplotype-hybrid fixed-kb --window-bp 100000 \
+# Fixed physical distance blocks (100 kb)
+./haplotype-hybrid \
       -i hap/chr* \
       -m map.txt \
       -o mh_info_fixedkb \
       --generate-genotypes fixedkb_genotypes \
-      -v
+      -v \
+      fixed-kb --window-bp 100000
 
 # Fixed SNP count per block
-./haplotype-hybrid snp-count --window 4 \
+./haplotype-hybrid \
       -i hap/chr* \
       -m map.txt \
       -o mh_info_snpcount \
       --generate-genotypes snpcount_genotypes \
-      -v
+      -v \
+      snp-count --window 4
 ```
 
 ### Key Parameters

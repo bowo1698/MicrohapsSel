@@ -11,7 +11,7 @@ use microhaplotype_preprocessing::modules::*;
 #[derive(Parser, Debug)]
 #[command(name = "haplotype-hybrid")]
 #[command(about = "Haplotype block definition for PHASED data")]
-#[command(override_usage = "haplotype-hybrid <COMMAND> -i <INPUT>... -m <MAP> -o <OUTPUT> [--generate-genotypes <DIR>] [OPTIONS]")]
+#[command(override_usage = "haplotype-hybrid -i <INPUT>... -m <MAP> -o <OUTPUT> [--generate-genotypes <DIR>] [OPTIONS] <COMMAND>")]
 #[command(long_about = "
 Haplotype block definition using hybrid approach for PHASED data.
 
@@ -21,13 +21,13 @@ Three methods available:
   snp-count       Fixed SNP count per block
 
 Examples:
-  haplotype-hybrid ld-haploblock micro --window-bp 125  -i hap_chr{1..18} -m map.txt -o out_micro --generate-genotypes out_micro
-  haplotype-hybrid ld-haploblock pure  --window 4       -i hap_chr{1..18} -m map.txt -o out_pure  --generate-genotypes out_pure
-  haplotype-hybrid fixed-kb --window-bp 100000          -i hap_chr{1..18} -m map.txt -o out_fixkb --generate-genotypes out_fixkb
-  haplotype-hybrid snp-count --window 4                 -i hap_chr{1..18} -m map.txt -o out_snp   --generate-genotypes out_snp
+  haplotype-hybrid -i hap_chr{1..18} -m map.txt -o out_micro --generate-genotypes out_micro  ld-haploblock micro --window-bp 125
+  haplotype-hybrid -i hap_chr{1..18} -m map.txt -o out_pure  --generate-genotypes out_pure   ld-haploblock pure  --window 4
+  haplotype-hybrid -i hap_chr{1..18} -m map.txt -o out_fixkb --generate-genotypes out_fixkb  fixed-kb --window-bp 100000
+  haplotype-hybrid -i hap_chr{1..18} -m map.txt -o out_snp   --generate-genotypes out_snp    snp-count --window 4
 
   # With missing data handling:
-  haplotype-hybrid ld-haploblock micro --window-bp 125  -i hap_chr{1..18} -m map.txt -o out_micro --generate-genotypes out_micro --missing N --missing-value -9999
+  haplotype-hybrid -i hap_chr{1..18} -m map.txt -o out_micro --generate-genotypes out_micro --missing N --missing-value -9999  ld-haploblock micro --window-bp 125
 ")]
 struct Cli {
     // --- General args ---

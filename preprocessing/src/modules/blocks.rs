@@ -1,6 +1,8 @@
 // src/modules/blocks.rs
 use std::collections::{HashSet, BTreeMap};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 use anyhow::Result;
 use rayon::prelude::*;
 
@@ -459,4 +461,70 @@ pub fn ld_prune_blocks(
     }
 
     pruned_all
+}
+
+pub fn load_block_definitions(
+    block_dir: &Path,
+    snp_map: &[SnpInfo],
+    verbose: bool,
+) -> Result<BTreeMap<i32, Vec<Block>>> {
+    let mut all_blocks: BTreeMap<i32, Vec<Block>> = BTreeMap::new();
+
+    let mut entries: Vec<_> = std::fs::read_dir(block_dir)?
+        .filter_map(|e| e.ok())
+        .filter(|e| {
+            e.file_name().to_str()
+                .map(|s| s.starts_with("hap_block_") && !s.contains("info"))
+                .unwrap_or(false)
+        })
+        .collect();
+    entries.sort_by_key(|e| get_chromosome_number(&e.path()));
+
+    for entry in entries {
+        let path = entry.path();
+        let chr_num = get_chromosome_number(&path);
+        let chr_snps: Vec<&SnpInfo> = snp_map.iter().filter(|s| s.chr == chr_num).collect();
+
+        let file = File::open(&path)?;
+        let reader = BufReader::new(file);
+        let mut blocks = Vec::new();
+
+        for line in reader.lines() {
+            let line = line?;
+            let parts: Vec<&str> = line.splitn(2, '\t').collect();
+            if parts.len() < 2 { continue; }
+
+            let indices: Vec<usize> = parts[1].split_whitespace()
+                .filter_map(|s| s.parse().ok())
+                .collect();
+            if indices.is_empty() { continue; }
+
+            let start_idx = *indices.first().unwrap();
+            let end_idx   = *indices.last().unwrap();
+
+            blocks.push(Block {
+                chr: chr_num,
+                start_pos: chr_snps.get(start_idx).map_or(0, |s| s.position),
+                end_pos:   chr_snps.get(end_idx).map_or(0, |s| s.position),
+                start_idx,
+                end_idx,
+                n_snps: indices.len(),
+                mean_ld_r2: None,
+                criterion_b_score: None,
+                selection_type: None,
+                original_block_size: None,
+                physical_span: None,
+                split_type: Some("reused".to_string()),
+                rare_allele_count: None,
+                pic: None,
+            });
+        }
+
+        if verbose {
+            println!("  Chr {}: loaded {} blocks from {}", chr_num, blocks.len(), path.display());
+        }
+        all_blocks.insert(chr_num, blocks);
+    }
+
+    Ok(all_blocks)
 }

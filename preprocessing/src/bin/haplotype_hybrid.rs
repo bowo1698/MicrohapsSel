@@ -28,6 +28,9 @@ Examples:
 
   # With missing data handling:
   haplotype-hybrid -i hap_chr{1..18} -m map.txt -o out_micro --generate-genotypes out_micro --missing N --missing-value -9999  ld-haploblock micro --window-bp 125
+
+  # Reuse block definitions from previous generation (e.g. G1 → G2):
+  haplotype-hybrid -i hap_chrG2{1..18} -m map.txt -o out_G2 --generate-genotypes out_G2 --reuse-blocks out_G1/mh_info_ld_haploblock --save-allele-map out_G2/allele_maps  ld-haploblock micro --window-bp 125
 ")]
 struct Cli {
     // --- General args ---
@@ -54,6 +57,14 @@ struct Cli {
     #[arg(long = "generate-genotypes")]
     #[arg(help = "Generate haplotype genotype files in this subdirectory")]
     generate_genotypes: Option<String>,
+
+    #[arg(long = "save-allele-map")]
+    #[arg(help = "Save allele mapping per chromosome to this directory")]
+    save_allele_map: Option<String>,
+
+    #[arg(long = "reuse-blocks")]
+    #[arg(help = "Reuse block definitions from this directory (hap_block_chr* files), skipping block discovery")]
+    reuse_blocks: Option<String>,
 
     #[arg(long = "missing")]
     #[arg(help = "Missing allele code in haplotype files")]
@@ -221,7 +232,12 @@ fn main() -> Result<()> {
 
     // --- Define blocks ---
     let t_define = std::time::Instant::now();
-    let all_blocks = define_microhaplotype_blocks(&hap_files, &snp_map, &config)?;
+    let all_blocks = if let Some(ref block_dir) = cli.reuse_blocks {
+        println!("Reusing block definitions from: {}", block_dir);
+        load_block_definitions(Path::new(block_dir), &snp_map, cli.verbose)?
+    } else {
+        define_microhaplotype_blocks(&hap_files, &snp_map, &config)?
+    };
     println!("[timing] define_blocks:     {:.1}s", t_define.elapsed().as_secs_f64());
 
     // --- Deduplication ---
@@ -309,6 +325,7 @@ fn main() -> Result<()> {
             &all_blocks, &hap_files, &geno_output_dir,
             cli.missing.as_deref(), &cli.missing_value,
             cli.noheader, cli.verbose,
+            cli.save_allele_map.as_deref().map(Path::new),
         )?;
     }
     println!("[timing] generate_genotypes: {:.1}s", t_geno.elapsed().as_secs_f64());
@@ -440,4 +457,6 @@ fn print_method_summary(cli: &Cli) {
     if let Some(k) = cli.top_k               { println!("Top-K blocks:      {}", k); }
     if let Some(v) = cli.min_effective_alleles { println!("Min eff. alleles:  {}", v); }
     if let Some(v) = cli.max_rare_alleles_prop { println!("Max rare prop:     {}", v); }
+    if let Some(ref d) = cli.reuse_blocks      { println!("Reuse blocks:      {}", d); }
+    if let Some(ref d) = cli.save_allele_map   { println!("Save allele map:   {}", d); }
 }

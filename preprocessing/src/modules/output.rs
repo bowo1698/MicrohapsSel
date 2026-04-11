@@ -62,6 +62,7 @@ pub fn generate_haplotype_genotypes(
     missing_value: &str,
     noheader: bool,
     verbose: bool,
+    allele_map_dir: Option<&Path>,
 ) -> Result<()> {
     fs::create_dir_all(output_dir)?;
 
@@ -72,6 +73,7 @@ pub fn generate_haplotype_genotypes(
     let missing_code_owned = missing_code.map(|s| s.to_string());
     let missing_value_owned = missing_value.to_string();
     let output_dir_owned = output_dir.to_path_buf();
+    let allele_map_dir_owned = allele_map_dir.map(|p| p.to_path_buf());
 
     let results: Vec<Result<()>> = hap_files
         .par_iter()
@@ -138,6 +140,25 @@ pub fn generate_haplotype_genotypes(
                     }
                 }
                 codes.push(hap_dict);
+            }
+
+            // Save allele map
+            if let Some(ref map_dir) = allele_map_dir_owned {
+                fs::create_dir_all(map_dir)?;
+                let map_file = map_dir.join(format!("allele_map_chr{}.csv", chr_num));
+                let mut mf = File::create(&map_file)?;
+                writeln!(mf, "block_id,haplotype_string,allele_label")?;
+                let mut global_block_counter = 1usize;
+                for (c, _block) in blocks.iter().enumerate() {
+                    let block_id = format!("blk{}", global_block_counter);
+                    for (hap_str, label) in &codes[c] {
+                        writeln!(mf, "{},{},{}", block_id, hap_str, label)?;
+                    }
+                    global_block_counter += 1;
+                }
+                if verbose {
+                    println!("    Allele map saved: {}", map_file.display());
+                }
             }
 
             let outfile = output_dir_owned.join(format!("hap_geno_{}", chr_num));

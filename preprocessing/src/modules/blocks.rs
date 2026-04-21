@@ -134,6 +134,21 @@ pub fn define_microhaplotype_blocks(
                         config.verbose,
                     );
 
+                    // determine effective max snps: adaptive or from config
+                    let effective_max_snps = if config.adaptive_max_snps {
+                        let (r2_thresh, adaptive) = estimate_adaptive_max_snps(
+                            hap_mat,
+                            config.min_snps,
+                            config.verbose,
+                        );
+                        if config.verbose {
+                            println!("  Adaptive max_snps: {} (r²_threshold: {:.3})", adaptive, r2_thresh);
+                        }
+                        adaptive
+                    } else {
+                        config.max_snps
+                    };
+
                     if config.verbose {
                         println!("  Built {} LD haploblocks", haploblocks.len());
                         match config.haplotype_type {
@@ -184,7 +199,7 @@ pub fn define_microhaplotype_blocks(
                                     &chr_snps,
                                     config.window_bp,
                                     config.min_snps,
-                                    config.max_snps,
+                                    effective_max_snps,
                                     config.aft,
                                     config.md,
                                 );

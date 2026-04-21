@@ -184,8 +184,12 @@ enum HaplotypeTypeCmd {
         window_bp: i32,
 
         #[arg(long = "max-snps", default_value_t = usize::MAX)]
-        #[arg(help = "Maximum SNPs per microhaplotype block")]
+        #[arg(help = "Maximum SNPs per microhaplotype block [default: no limit]")]
         max_snps: usize,
+
+        #[arg(long = "adaptive-max-snps", default_value_t = false)]
+        #[arg(help = "Estimate max-snps adaptively from LD structure of the data [default: off]")]
+        adaptive_max_snps: bool,
     },
 
     /// Select best fixed-size haplotype window from each LD block
@@ -357,11 +361,11 @@ fn build_config(cli: &Cli) -> BlockDefinitionConfig {
             d_prime_threshold, min_snps, aft, md, max_criterion_b,
             haplotype_type,
         } => {
-            let (method_ht, window_bp, window_snps, max_snps) = match haplotype_type {
-                HaplotypeTypeCmd::Micro { window_bp, max_snps } =>
-                    (HaplotypeType::Micro, *window_bp, 4, *max_snps),
+            let (method_ht, window_bp, window_snps, max_snps, adaptive_max_snps) = match haplotype_type {
+                HaplotypeTypeCmd::Micro { window_bp, max_snps, adaptive_max_snps } =>
+                    (HaplotypeType::Micro, *window_bp, 4, *max_snps, *adaptive_max_snps),
                 HaplotypeTypeCmd::Pure { window } =>
-                    (HaplotypeType::Pure, 125, *window, usize::MAX),
+                    (HaplotypeType::Pure, 125, *window, usize::MAX, false),
             };
             BlockDefinitionConfig {
                 method: Method::LdHaploblock,
@@ -370,6 +374,7 @@ fn build_config(cli: &Cli) -> BlockDefinitionConfig {
                 window_snps,
                 min_snps: *min_snps,
                 max_snps,
+                adaptive_max_snps,
                 d_prime_threshold: *d_prime_threshold,
                 aft: *aft,
                 md: *md,
@@ -387,6 +392,7 @@ fn build_config(cli: &Cli) -> BlockDefinitionConfig {
                 window_snps: 4,
                 min_snps: *min_snps,
                 max_snps: usize::MAX,
+                adaptive_max_snps: false,
                 d_prime_threshold: 0.0,
                 aft: 0.0,
                 md: 0.0,
@@ -404,6 +410,7 @@ fn build_config(cli: &Cli) -> BlockDefinitionConfig {
                 window_snps: *window,
                 min_snps: *min_snps,
                 max_snps: usize::MAX,
+                adaptive_max_snps: false,
                 d_prime_threshold: 0.0,
                 aft: 0.0,
                 md: 0.0,
@@ -426,9 +433,11 @@ fn print_method_summary(cli: &Cli) {
             println!("D' threshold:      {}", d_prime_threshold);
             println!("Criterion-B AFT:   {}  MD: {}", aft, md);
             match haplotype_type {
-                HaplotypeTypeCmd::Micro { window_bp, max_snps } => {
+                HaplotypeTypeCmd::Micro { window_bp, max_snps, adaptive_max_snps } => {
                     println!("Haplotype type:    micro ({}bp windows)", window_bp);
-                    if *max_snps != usize::MAX {
+                    if *adaptive_max_snps {
+                        println!("Max SNPs/block:    adaptive (estimated from LD structure)");
+                    } else if *max_snps != usize::MAX {
                         println!("Max SNPs/block:    {}", max_snps);
                     }
                 }
